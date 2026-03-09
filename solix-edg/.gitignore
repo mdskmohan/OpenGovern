@@ -1,0 +1,480 @@
+# Dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage directory used by tools like istanbul
+coverage/
+*.lcov
+.nyc_output
+
+# nyc test coverage
+.nyc_output
+
+# Grunt intermediate storage (https://gruntjs.com/creating-plugins#storing-task-files)
+.grunt
+
+# Bower dependency directory (https://bower.io/)
+bower_components
+
+# node-waf configuration
+.lock-wscript
+
+# Compiled binary addons (https://nodejs.org/api/addons.html)
+build/Release
+
+# Dependency directories
+jspm_packages/
+
+# Snowpack dependency directory (https://snowpack.dev/)
+web_modules/
+
+# TypeScript cache
+*.tsbuildinfo
+
+# Optional npm cache directory
+.npm
+
+# Optional eslint cache
+.eslintcache
+
+# Optional stylelint cache
+.stylelintcache
+
+# Microbundle cache
+.rpt2_cache/
+.rts2_cache_cjs/
+.rts2_cache_es/
+.rts2_cache_umd/
+
+# Optional REPL history
+.node_repl_history
+
+# Output of 'npm pack'
+*.tgz
+
+# Yarn Integrity file
+.yarn-integrity
+
+# dotenv environment variable files
+.env
+.env.development.local
+.env.test.local
+.env.production.local
+.env.local
+
+# parcel-bundler cache (https://parceljs.org/)
+.cache
+.parcel-cache
+
+# Next.js build output
+.next/
+out/
+
+# Nuxt.js build / generate output
+.nuxt
+dist
+
+# Gatsby files
+.cache/
+public
+
+# Vuepress build output
+.vuepress/dist
+
+# Vuepress v2.x temp and cache directory
+.temp
+.cache
+
+# Docusaurus cache and generated files
+.docusaurus
+
+# Serverless directories
+.serverless/
+
+# FuseBox cache
+.fusebox/
+
+# DynamoDB Local files
+.dynamodb/
+
+# TernJS port file
+.tern-port
+
+# Stores VSCode versions used for testing VSCode extensions
+.vscode-test
+
+# yarn v2
+.yarn/cache
+.yarn/unplugged
+.yarn/build-state.yml
+.yarn/install-state.gz
+.pnp.*
+
+# IntelliJ based IDEs
+.idea
+
+# Finder (MacOS)
+.DS_Store
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# VS Code
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# Temporary folders
+tmp/
+temp/
+
+# Logs
+logs
+*.log
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Optional REPL history
+.node_repl_history
+
+# Output of 'npm pack'
+*.tgz
+
+# Yarn Integrity file
+.yarn-integrity
+
+# dotenv environment variable files
+.env
+.env.development.local
+.env.test.local
+.env.production.local
+.env.local
+
+# parcel-bundler cache (https://parceljs.org/)
+.cache
+.parcel-cache
+
+# Next.js build output
+.next/
+out/
+
+# Nuxt.js build / generate output
+.nuxt
+dist
+
+# Gatsby files
+.cache/
+public
+
+# Vuepress build output
+.vuepress/dist
+
+# Vuepress v2.x temp and cache directory
+.temp
+.cache
+
+# Docusaurus cache and generated files
+.docusaurus
+
+# Serverless directories
+.serverless/
+
+# FuseBox cache
+.fusebox/
+
+# DynamoDB Local files
+.dynamodb/
+
+# TernJS port file
+.tern-port
+
+# Stores VSCode versions used for testing VSCode extensions
+.vscode-test
+
+# yarn v2
+.yarn/cache
+.yarn/unplugged
+.yarn/build-state.yml
+.yarn/install-state.gz
+.pnp.*
+
+# IntelliJ based IDEs
+.idea
+
+# Finder (MacOS)
+.DS_Store
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Docker
+.dockerignore
+
+# Kubernetes
+.kube/
+
+# Helm
+helm/
+
+# Terraform
+.terraform/
+terraform.tfstate
+terraform.tfstate.backup
+
+# Ansible
+ansible/
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Certificate files
+*.pem
+*.key
+*.crt
+*.cer
+*.p12
+*.pfx
+
+# Backup files
+*.bak
+*.backup
+*.old
+
+# Swap files
+*.swp
+*.swo
+*~
+
+# Patch files
+*.patch
+*.diff
+
+# Temporary files
+*.tmp
+*.temp
+
+# Build artifacts
+build/
+dist/
+target/
+
+# Test coverage
+coverage/
+.nyc_output/
+
+# Jest cache
+.jest/
+
+# Cypress
+cypress/videos/
+cypress/screenshots/
+
+# Storybook build outputs
+.out
+.storybook-out
+
+# Temporary folders
+tmp/
+temp/
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Project specific
+# OpenMetadata data
+openmetadata-data/
+
+# Policy files (may contain sensitive data)
+policies/secrets/
+
+# Local development databases
+*.db
+*.sqlite
+
+# Docker volumes
+volumes/
+
+# Log files
+logs/
+*.log
+
+# Temporary development files
+scratch/
+notes/
+
+# Backup files
+*.bak
+*.orig
+
+# Environment files (should be gitignored by default)
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# API keys and secrets
+secrets/
+config/secrets/
+
+# Local SSL certificates
+ssl/
+certs/
+
+# Performance monitoring
+profiling/
+
+# Debug files
+debug/
+*.debug
+
+# Temporary build artifacts
+tmp/
+build/
+dist/
+
+# Cache directories
+.cache/
+.parcel-cache/
+.next/cache/
+
+# Testing
+test-results/
+playwright-report/
+coverage/
+
+# CI/CD
+.github/workflows/*.log
+
+# Documentation build
+docs/.vuepress/dist/
+docs/_book/
+docs/.doctrees/
+
+# API documentation
+api-docs/
+
+# Generated files
+generated/
+auto-generated/
+
+# Backup configurations
+*.backup
+*.old
+
+# Local development overrides
+local/
+overrides/
+
+# Feature flags and toggles
+feature-flags/
+
+# Migration files (sometimes contain sensitive data)
+migrations/secrets/
+
+# Seed data
+seeds/
+
+# Docker compose overrides
+docker-compose.override.yml
+
+# Local development scripts
+scripts/local/
+
+# Performance profiles
+*.cpuprofile
+*.heapprofile
+
+# Error dumps
+*.dump
+
+# System files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Network files
+.nfs*
+
+# Lock files (usually managed by package managers)
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# But keep the main package.json
+!package.json
+
+# Keep workspace package.json files
+!**/package.json
+
+# Keep specific config files that are meant to be committed
+!.vscode/settings.json.example
+!.vscode/launch.json.example
+!.env.example
+!.env.local.example
+
+# Keep documentation
+!docs/
+docs/node_modules/
+
+# Keep infrastructure as code
+!infrastructure/
+
+# Keep CI/CD configurations
+!.github/
+
+# Keep license
+!LICENSE
+
+# Keep contributing guidelines
+!CONTRIBUTING.md
+
+# Keep code of conduct
+!CODE_OF_CONDUCT.md
+
+# Keep issue templates
+!.github/ISSUE_TEMPLATE/
+
+# Keep pull request template
+!.github/PULL_REQUEST_TEMPLATE.md
+
+# Keep security policy
+!SECURITY.md
+
+# Keep funding information
+!.github/FUNDING.yml

@@ -1,6 +1,6 @@
 openapi: 3.0.3
 info:
-  title: Solix EDG Metadata Service API
+  title: OpenGovern Metadata Service API
   version: 1.0.0
   description: API for interacting with OpenMetadata
 

@@ -131,7 +131,7 @@ export default function Integrations() {
         <div className="text-center">
           <h3 className="text-xl font-medium text-gray-900 mb-2">OpenMetadata Integration</h3>
           <p className="text-gray-600 mb-4 max-w-2xl mx-auto">
-            Solix EDG leverages OpenMetadata's extensive connector ecosystem, supporting 50+ data sources including databases, BI tools, ML platforms, and cloud services.
+            OpenGovern leverages OpenMetadata's extensive connector ecosystem, supporting 50+ data sources including databases, BI tools, ML platforms, and cloud services.
           </p>
           <div className="flex justify-center space-x-4 text-sm">
             <span className="bg-white px-3 py-1 rounded-full text-gray-700">Auto-discovery</span>

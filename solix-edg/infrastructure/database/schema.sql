@@ -1,4 +1,4 @@
--- Solix EDG Database Schema
+-- OpenGovern Database Schema
 -- PostgreSQL
 
 -- Users and Roles

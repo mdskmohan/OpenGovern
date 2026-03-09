@@ -3,7 +3,7 @@ export default function Settings() {
     <div className="space-y-8">
       <div>
         <h1 className="text-4xl font-light text-gray-900">Settings</h1>
-        <p className="mt-2 text-lg text-gray-600">Configure Solix EDG platform settings</p>
+        <p className="mt-2 text-lg text-gray-600">Configure OpenGovern platform settings</p>
       </div>
       <div className="rounded-xl bg-white p-8 shadow-sm border border-gray-100 text-center">
         <div className="mx-auto h-16 w-16 text-gray-400 mb-4">

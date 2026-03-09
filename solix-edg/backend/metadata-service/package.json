@@ -1,7 +1,7 @@
 {
   "name": "metadata-service",
   "version": "1.0.0",
-  "description": "Metadata service for Solix EDG",
+  "description": "Metadata service for OpenGovern",
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",

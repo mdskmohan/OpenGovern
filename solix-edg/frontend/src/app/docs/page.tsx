@@ -5,7 +5,7 @@ import { useState } from 'react';
 export default function Docs() {
   const [query, setQuery] = useState('');
   const [messages, setMessages] = useState([
-    { role: 'assistant', content: 'Hello! I\'m your Solix EDG documentation assistant. How can I help you today?' }
+    { role: 'assistant', content: 'Hello! I\'m your OpenGovern documentation assistant. How can I help you today?' }
   ]);
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -27,7 +27,7 @@ export default function Docs() {
     <div className="space-y-8">
       <div>
         <h1 className="text-4xl font-light text-gray-900">Documentation</h1>
-        <p className="mt-2 text-lg text-gray-600">Learn about Solix EDG and OpenMetadata</p>
+        <p className="mt-2 text-lg text-gray-600">Learn about OpenGovern and OpenMetadata</p>
       </div>
 
       <div className="grid gap-8 lg:grid-cols-3">
@@ -37,11 +37,11 @@ export default function Docs() {
             <div className="space-y-4">
               <div className="border-l-4 border-blue-500 pl-4">
                 <h3 className="font-medium text-gray-900">Platform Overview</h3>
-                <p className="text-gray-600">Introduction to Solix EDG's AI-first approach to data governance</p>
+                <p className="text-gray-600">Introduction to OpenGovern's AI-first approach to data governance</p>
               </div>
               <div className="border-l-4 border-green-500 pl-4">
                 <h3 className="font-medium text-gray-900">OpenMetadata Integration</h3>
-                <p className="text-gray-600">How Solix EDG leverages OpenMetadata's metadata engine</p>
+                <p className="text-gray-600">How OpenGovern leverages OpenMetadata's metadata engine</p>
               </div>
               <div className="border-l-4 border-purple-500 pl-4">
                 <h3 className="font-medium text-gray-900">Policy Engine</h3>
@@ -89,7 +89,7 @@ export default function Docs() {
                   type="text"
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Ask about Solix EDG..."
+                  placeholder="Ask about OpenGovern..."
                   className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
                 <button
