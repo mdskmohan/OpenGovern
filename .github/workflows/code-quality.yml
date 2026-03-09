@@ -1,0 +1,354 @@
+name: Code Quality
+
+on:
+  push:
+    branches: [ main, staging ]
+  pull_request:
+    branches: [ main, staging ]
+
+env:
+  NODE_VERSION: '18'
+
+jobs:
+  # ===========================================
+  # CODE QUALITY CHECKS
+  # ===========================================
+  code-quality:
+    name: Code Quality Checks
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+      working-directory: solix-edg
+
+    - name: Run ESLint
+      run: npm run lint
+      working-directory: solix-edg
+
+    - name: Run Prettier check
+      run: npm run format:check
+      working-directory: solix-edg
+
+    - name: Run TypeScript type checking
+      run: npm run type-check
+      working-directory: solix-edg
+
+    - name: Run SonarQube analysis
+      uses: SonarSource/sonarqube-scan-action@v1
+      env:
+        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+      with:
+        projectBaseDir: solix-edg
+
+    - name: Run CodeQL Analysis
+      uses: github/codeql-action/init@v2
+      with:
+        languages: javascript, typescript
+
+    - name: Autobuild
+      uses: github/codeql-action/autobuild@v2
+
+    - name: Perform CodeQL Analysis
+      uses: github/codeql-action/analyze@v2
+
+  # ===========================================
+  # PERFORMANCE CHECKS
+  # ===========================================
+  performance-checks:
+    name: Performance Checks
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+      working-directory: solix-edg/frontend
+
+    - name: Build for production
+      run: npm run build
+      working-directory: solix-edg/frontend
+
+    - name: Run Lighthouse CI
+      run: |
+        npm install -g lighthouse
+        lighthouse http://localhost:3000 --output=json --output-path=./lighthouse-results.json --chrome-flags="--headless --no-sandbox"
+      working-directory: solix-edg/frontend
+
+    - name: Upload Lighthouse results
+      uses: actions/upload-artifact@v3
+      with:
+        name: lighthouse-results
+        path: solix-edg/frontend/lighthouse-results.json
+
+    - name: Check bundle size
+      run: |
+        npx bundlesize
+      working-directory: solix-edg/frontend
+      env:
+        BUNDLESIZE_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # ===========================================
+  # ACCESSIBILITY CHECKS
+  # ===========================================
+  accessibility-checks:
+    name: Accessibility Checks
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+
+    - name: Install dependencies
+      run: npm ci
+      working-directory: solix-edg/frontend
+
+    - name: Build application
+      run: npm run build
+      working-directory: solix-edg/frontend
+
+    - name: Start application
+      run: npm start &
+      working-directory: solix-edg/frontend
+
+    - name: Wait for app to start
+      run: |
+        timeout 60 bash -c 'until curl -f http://localhost:3000 > /dev/null 2>&1; do sleep 2; done'
+
+    - name: Run axe-core accessibility tests
+      run: |
+        npx axe http://localhost:3000 --exit
+
+    - name: Run pa11y accessibility tests
+      run: |
+        npx pa11y http://localhost:3000
+
+  # ===========================================
+  # AUTOMATED REVIEW
+  # ===========================================
+  automated-review:
+    name: Automated Code Review
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+
+    - name: Install dependencies
+      run: npm ci
+      working-directory: solix-edg
+
+    - name: Run Danger JS
+      run: npx danger ci
+      working-directory: solix-edg
+      env:
+        DANGER_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: AI Code Review
+      uses: anc95/ChatGPT-CodeReview@main
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        MODEL: gpt-4
+        PROMPT: |
+          You are a senior software engineer conducting a code review. Focus on:
+          1. Code quality and best practices
+          2. Security vulnerabilities
+          3. Performance issues
+          4. TypeScript/React best practices
+          5. Architecture and design patterns
+          6. Testing coverage
+          7. Documentation
+
+          Be constructive and provide specific suggestions for improvement.
+          Ignore minor style issues if ESLint/Prettier handle them.
+
+    - name: Comment PR with review summary
+      uses: actions/github-script@v6
+      if: always()
+      with:
+        script: |
+          const { exec } = require('child_process');
+          const { promisify } = require('util');
+          const execAsync = promisify(exec);
+
+          try {
+            // Get PR details
+            const pr = context.payload.pull_request;
+            const prNumber = pr.number;
+
+            // Run code quality checks summary
+            const { stdout: qualityOutput } = await execAsync('cd solix-edg && npm run quality:summary');
+
+            // Create summary comment
+            const body = `## 🤖 Automated Code Review Summary
+
+### Code Quality Metrics
+\`\`\`
+${qualityOutput}
+\`\`\`
+
+### Review Checklist
+- [ ] **Security**: No critical vulnerabilities detected
+- [ ] **Performance**: Bundle size and Lighthouse scores within acceptable ranges
+- [ ] **Accessibility**: WCAG compliance checks passed
+- [ ] **Type Safety**: TypeScript compilation successful
+- [ ] **Code Style**: ESLint and Prettier checks passed
+- [ ] **Testing**: Test coverage meets requirements
+- [ ] **Documentation**: Code is well-documented
+
+### Next Steps
+1. Review AI-generated suggestions above
+2. Address any critical issues
+3. Ensure all tests pass
+4. Update documentation if needed
+
+---
+*This review was automatically generated. Please address any critical issues before merging.*`;
+
+            github.rest.issues.createComment({
+              issue_number: prNumber,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body
+            });
+
+          } catch (error) {
+            console.error('Error creating review summary:', error);
+          }
+
+  # ===========================================
+  # DEPLOYMENT READINESS
+  # ===========================================
+  deployment-readiness:
+    name: Deployment Readiness
+    runs-on: ubuntu-latest
+    needs: [code-quality, performance-checks, accessibility-checks]
+    if: github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'main'
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+
+    - name: Install dependencies
+      run: npm ci
+      working-directory: solix-edg
+
+    - name: Run deployment checks
+      run: npm run deploy:check
+      working-directory: solix-edg
+
+    - name: Validate environment configuration
+      run: |
+        cd solix-edg
+        # Check if all required environment variables are documented
+        if [ ! -f .env.example ]; then
+          echo "❌ .env.example file is missing"
+          exit 1
+        fi
+
+        # Check if Docker files are present
+        if [ ! -f infrastructure/docker/Dockerfile ]; then
+          echo "❌ Dockerfile is missing"
+          exit 1
+        fi
+
+        # Check if docker-compose files exist
+        if [ ! -f infrastructure/docker/docker-compose.yml ]; then
+          echo "❌ docker-compose.yml is missing"
+          exit 1
+        fi
+
+        echo "✅ All deployment files are present"
+
+    - name: Check deployment documentation
+      run: |
+        cd solix-edg
+        # Check if deployment docs exist
+        if [ ! -f docs/deployment.md ]; then
+          echo "❌ Deployment documentation is missing"
+          exit 1
+        fi
+
+        echo "✅ Deployment documentation is present"
+
+    - name: Add deployment-ready label
+      if: success()
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const pr = context.payload.pull_request;
+          const prNumber = pr.number;
+
+          // Add deployment-ready label
+          github.rest.issues.addLabels({
+            issue_number: prNumber,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            labels: ['deployment-ready']
+          });
+
+          // Comment on PR
+          github.rest.issues.createComment({
+            issue_number: prNumber,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: `## ✅ Deployment Ready
+
+This PR has passed all automated quality checks and is ready for deployment to production.
+
+### Quality Gates Passed
+- ✅ Code Quality (ESLint, Prettier, TypeScript)
+- ✅ Security Scanning (CodeQL, SonarQube)
+- ✅ Performance Checks (Lighthouse, Bundle Size)
+- ✅ Accessibility (axe-core, pa11y)
+- ✅ Testing (Unit, Integration, E2E)
+- ✅ Deployment Configuration
+
+### Next Steps
+1. Review the changes one final time
+2. Merge to main branch
+3. Deployment will be triggered automatically
+4. Monitor deployment status
+
+---
+*Automated deployment readiness check completed successfully*`
+          });

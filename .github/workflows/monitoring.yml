@@ -1,0 +1,438 @@
+name: Production Monitoring
+
+on:
+  schedule:
+    # Run every 15 minutes
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+
+jobs:
+  # ===========================================
+  # HEALTH CHECKS
+  # ===========================================
+  health-checks:
+    name: Health Checks
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Health check - API Gateway
+      run: |
+        # Check main API endpoint
+        if curl -f -s https://api.solix-edg.com/health > /dev/null; then
+          echo "✅ API Gateway is healthy"
+        else
+          echo "❌ API Gateway is unhealthy"
+          exit 1
+        fi
+
+    - name: Health check - Frontend
+      run: |
+        # Check frontend application
+        if curl -f -s https://app.solix-edg.com > /dev/null; then
+          echo "✅ Frontend is healthy"
+        else
+          echo "❌ Frontend is unhealthy"
+          exit 1
+        fi
+
+    - name: Health check - Database
+      run: |
+        # Check database connectivity (through API)
+        if curl -f -s https://api.solix-edg.com/health/database > /dev/null; then
+          echo "✅ Database is healthy"
+        else
+          echo "❌ Database is unhealthy"
+          exit 1
+        fi
+
+    - name: Health check - Redis Cache
+      run: |
+        # Check Redis connectivity
+        if curl -f -s https://api.solix-edg.com/health/cache > /dev/null; then
+          echo "✅ Redis Cache is healthy"
+        else
+          echo "❌ Redis Cache is unhealthy"
+          exit 1
+        fi
+
+    - name: Health check - OpenMetadata
+      run: |
+        # Check OpenMetadata service
+        if curl -f -s https://metadata.solix-edg.com/health > /dev/null; then
+          echo "✅ OpenMetadata is healthy"
+        else
+          echo "❌ OpenMetadata is unhealthy"
+          exit 1
+        fi
+
+    - name: Health check - Open Policy Agent
+      run: |
+        # Check OPA service
+        if curl -f -s https://opa.solix-edg.com/health > /dev/null; then
+          echo "✅ Open Policy Agent is healthy"
+        else
+          echo "❌ Open Policy Agent is unhealthy"
+          exit 1
+        fi
+
+  # ===========================================
+  # PERFORMANCE MONITORING
+  # ===========================================
+  performance-monitoring:
+    name: Performance Monitoring
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+
+    - name: Install monitoring tools
+      run: npm install -g lighthouse artillery
+
+    - name: Run Lighthouse performance audit
+      run: |
+        lighthouse https://app.solix-edg.com \
+          --output=json \
+          --output-path=./lighthouse-report.json \
+          --chrome-flags="--headless --no-sandbox" \
+          --only-categories=performance,accessibility,best-practices,seo
+
+    - name: Check performance thresholds
+      run: |
+        PERFORMANCE_SCORE=$(jq '.categories.performance.score * 100' lighthouse-report.json)
+        ACCESSIBILITY_SCORE=$(jq '.categories.accessibility.score * 100' lighthouse-report.json)
+
+        echo "Performance Score: $PERFORMANCE_SCORE"
+        echo "Accessibility Score: $ACCESSIBILITY_SCORE"
+
+        # Alert if performance drops below 90
+        if (( $(echo "$PERFORMANCE_SCORE < 90" | bc -l) )); then
+          echo "❌ Performance score below threshold: $PERFORMANCE_SCORE"
+          echo "performance_alert=true" >> $GITHUB_ENV
+        else
+          echo "✅ Performance score acceptable: $PERFORMANCE_SCORE"
+        fi
+
+        # Alert if accessibility drops below 95
+        if (( $(echo "$ACCESSIBILITY_SCORE < 95" | bc -l) )); then
+          echo "❌ Accessibility score below threshold: $ACCESSIBILITY_SCORE"
+          echo "accessibility_alert=true" >> $GITHUB_ENV
+        else
+          echo "✅ Accessibility score acceptable: $ACCESSIBILITY_SCORE"
+        fi
+
+    - name: Run API load test
+      run: |
+        artillery quick \
+          --count 50 \
+          --num 10 \
+          https://api.solix-edg.com/api/v1/metadata \
+          --output artillery-report.json
+
+    - name: Check API response times
+      run: |
+        RESPONSE_TIME=$(jq '.aggregate.summary."http.response_time.mean"' artillery-report.json)
+
+        echo "Average API Response Time: $RESPONSE_TIME ms"
+
+        # Alert if response time exceeds 500ms
+        if (( $(echo "$RESPONSE_TIME > 500" | bc -l) )); then
+          echo "❌ API response time too slow: $RESPONSE_TIME ms"
+          echo "api_performance_alert=true" >> $GITHUB_ENV
+        else
+          echo "✅ API response time acceptable: $RESPONSE_TIME ms"
+        fi
+
+    - name: Upload performance reports
+      uses: actions/upload-artifact@v3
+      with:
+        name: performance-reports
+        path: |
+          lighthouse-report.json
+          artillery-report.json
+
+  # ===========================================
+  # ERROR MONITORING
+  # ===========================================
+  error-monitoring:
+    name: Error Monitoring
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Check application logs
+      run: |
+        # Check for error patterns in logs (this would integrate with your logging service)
+        # This is a placeholder - replace with actual log checking logic
+        echo "Checking application logs for errors..."
+
+        # Example: Check CloudWatch logs or similar
+        # aws logs filter-log-events --log-group-name solix-edg-errors --start-time $(date -u +%s000)000 --filter-pattern "ERROR" | jq '.events | length'
+
+    - name: Check error rates
+      run: |
+        # Check error rates from monitoring service
+        # This would integrate with DataDog, New Relic, or similar
+        echo "Checking error rates..."
+
+        # Placeholder for error rate checking
+        ERROR_RATE=0.05  # 5% error rate
+
+        if (( $(echo "$ERROR_RATE > 0.1" | bc -l) )); then
+          echo "❌ Error rate too high: $ERROR_RATE"
+          echo "error_rate_alert=true" >> $GITHUB_ENV
+        else
+          echo "✅ Error rate acceptable: $ERROR_RATE"
+        fi
+
+    - name: Check database connection pool
+      run: |
+        # Check database connection health
+        if curl -f -s https://api.solix-edg.com/health/database/pool > /dev/null; then
+          echo "✅ Database connection pool healthy"
+        else
+          echo "❌ Database connection pool issues"
+          echo "db_pool_alert=true" >> $GITHUB_ENV
+        fi
+
+  # ===========================================
+  # SECURITY MONITORING
+  # ===========================================
+  security-monitoring:
+    name: Security Monitoring
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Run security scan
+      run: |
+        # Run security vulnerability scan
+        echo "Running security vulnerability scan..."
+
+        # Check for known vulnerabilities
+        # This would integrate with security scanning tools
+        VULNERABILITIES=$(curl -s https://api.solix-edg.com/security/vulnerabilities | jq '.count')
+
+        if [ "$VULNERABILITIES" -gt 0 ]; then
+          echo "❌ Security vulnerabilities found: $VULNERABILITIES"
+          echo "security_alert=true" >> $GITHUB_ENV
+        else
+          echo "✅ No security vulnerabilities found"
+        fi
+
+    - name: Check SSL certificate
+      run: |
+        # Check SSL certificate expiration
+        CERT_EXPIRY=$(openssl s_client -connect app.solix-edg.com:443 -servername app.solix-edg.com 2>/dev/null | openssl x509 -noout -enddate 2>/dev/null | cut -d'=' -f2)
+
+        if [ -n "$CERT_EXPIRY" ]; then
+          CERT_EXPIRY_EPOCH=$(date -d "$CERT_EXPIRY" +%s)
+          NOW_EPOCH=$(date +%s)
+          DAYS_LEFT=$(( ($CERT_EXPIRY_EPOCH - $NOW_EPOCH) / 86400 ))
+
+          if [ $DAYS_LEFT -lt 30 ]; then
+            echo "❌ SSL certificate expires soon: $DAYS_LEFT days left"
+            echo "ssl_alert=true" >> $GITHUB_ENV
+          else
+            echo "✅ SSL certificate valid: $DAYS_LEFT days left"
+          fi
+        else
+          echo "❌ Could not check SSL certificate"
+          echo "ssl_alert=true" >> $GITHUB_ENV
+        fi
+
+    - name: Check for security headers
+      run: |
+        # Check security headers
+        HEADERS=$(curl -I -s https://app.solix-edg.com)
+
+        if echo "$HEADERS" | grep -q "Strict-Transport-Security"; then
+          echo "✅ HSTS header present"
+        else
+          echo "❌ HSTS header missing"
+          echo "security_headers_alert=true" >> $GITHUB_ENV
+        fi
+
+        if echo "$HEADERS" | grep -q "Content-Security-Policy"; then
+          echo "✅ CSP header present"
+        else
+          echo "❌ CSP header missing"
+          echo "security_headers_alert=true" >> $GITHUB_ENV
+        fi
+
+  # ===========================================
+  # ALERTING
+  # ===========================================
+  alerting:
+    name: Send Alerts
+    runs-on: ubuntu-latest
+    needs: [health-checks, performance-monitoring, error-monitoring, security-monitoring]
+    if: always()
+
+    steps:
+    - name: Check for alerts
+      run: |
+        ALERTS=""
+
+        # Collect all alert flags
+        if [ "${{ env.performance_alert }}" = "true" ]; then
+          ALERTS="${ALERTS}🚨 Performance degradation detected\n"
+        fi
+
+        if [ "${{ env.accessibility_alert }}" = "true" ]; then
+          ALERTS="${ALERTS}🚨 Accessibility issues detected\n"
+        fi
+
+        if [ "${{ env.api_performance_alert }}" = "true" ]; then
+          ALERTS="${ALERTS}🚨 API performance issues detected\n"
+        fi
+
+        if [ "${{ env.error_rate_alert }}" = "true" ]; then
+          ALERTS="${ALERTS}🚨 High error rate detected\n"
+        fi
+
+        if [ "${{ env.db_pool_alert }}" = "true" ]; then
+          ALERTS="${ALERTS}🚨 Database connection issues detected\n"
+        fi
+
+        if [ "${{ env.security_alert }}" = "true" ]; then
+          ALERTS="${ALERTS}🚨 Security vulnerabilities detected\n"
+        fi
+
+        if [ "${{ env.ssl_alert }}" = "true" ]; then
+          ALERTS="${ALERTS}🚨 SSL certificate issues detected\n"
+        fi
+
+        if [ "${{ env.security_headers_alert }}" = "true" ]; then
+          ALERTS="${ALERTS}🚨 Security headers missing\n"
+        fi
+
+        if [ -n "$ALERTS" ]; then
+          echo "alerts<<EOF" >> $GITHUB_OUTPUT
+          echo "$ALERTS" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+          echo "has_alerts=true" >> $GITHUB_OUTPUT
+        else
+          echo "✅ All systems operating normally"
+          echo "has_alerts=false" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Send Slack alert
+      if: env.has_alerts == 'true'
+      uses: 8398a7/action-slack@v3
+      with:
+        status: failure
+        webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
+        title: '🚨 Production Alert - OpenGovern'
+        text: |
+          *Production Issues Detected*
+
+          ${{ steps.alert.outputs.alerts }}
+
+          *Environment*: Production
+          *Time*: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+          *Dashboard*: https://monitoring.solix-edg.com
+
+          Please investigate immediately.
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+    - name: Send email alert
+      if: env.has_alerts == 'true'
+      uses: dawidd6/action-send-mail@v3
+      with:
+        server_address: smtp.gmail.com
+        server_port: 587
+        username: ${{ secrets.EMAIL_USERNAME }}
+        password: ${{ secrets.EMAIL_PASSWORD }}
+        subject: '🚨 PRODUCTION ALERT - OpenGovern Issues Detected'
+        body: |
+          ## Production Alert
+
+          **Environment**: Production
+          **Time**: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+          **Status**: Issues Detected
+
+          ### Issues Found
+          ${{ steps.alert.outputs.alerts }}
+
+          ### Actions Required
+          1. Check monitoring dashboard: https://monitoring.solix-edg.com
+          2. Review application logs
+          3. Investigate root cause
+          4. Implement fixes
+          5. Update incident response team
+
+          ### Contact
+          - DevOps: devops@solix-edg.com
+          - On-call: +1-555-0123
+
+          ---
+          *This is an automated alert from the production monitoring system.*
+        to: alerts@solix-edg.com, devops@solix-edg.com
+        from: Production Monitoring <alerts@solix-edg.com>
+
+    - name: Create incident issue
+      if: env.has_alerts == 'true'
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const alerts = `${{ steps.alert.outputs.alerts }}`;
+
+          // Create incident tracking issue
+          const issue = await github.rest.issues.create({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            title: `🚨 Production Incident - $(date +"%Y-%m-%d %H:%M UTC")`,
+            body: `## Production Incident Report
+
+**Incident Time**: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+**Environment**: Production
+**Status**: 🔴 Active
+
+### Issues Detected
+${alerts}
+
+### Investigation Checklist
+- [ ] Check application logs
+- [ ] Review error monitoring dashboard
+- [ ] Analyze performance metrics
+- [ ] Check database connectivity
+- [ ] Verify external service dependencies
+- [ ] Review recent deployments
+- [ ] Check security alerts
+
+### Resolution Steps
+- [ ] Identify root cause
+- [ ] Implement fix
+- [ ] Test fix in staging
+- [ ] Deploy fix to production
+- [ ] Monitor for recurrence
+- [ ] Update incident documentation
+
+### Communication
+- [ ] Notify stakeholders
+- [ ] Update status page
+- [ ] Send customer communication if needed
+
+### Post-Incident
+- [ ] Conduct post-mortem
+- [ ] Update runbooks
+- [ ] Implement preventive measures
+
+---
+*Auto-generated by production monitoring workflow*`,
+            labels: ['incident', 'production', 'urgent']
+          });

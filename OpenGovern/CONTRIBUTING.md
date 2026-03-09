@@ -42,7 +42,7 @@ Before you begin, ensure you have the following installed:
 2. **Clone your fork** locally:
    ```bash
    git clone https://github.com/your-username/EDG.git
-   cd EDG/solix-edg
+   cd EDG/OpenEDG
    ```
 3. **Install dependencies**:
    ```bash
@@ -63,7 +63,7 @@ Create environment files for each service:
 ```bash
 # .env (root directory)
 NODE_ENV=development
-COMPOSE_PROJECT_NAME=solix-edg
+COMPOSE_PROJECT_NAME=OpenEDG
 
 # frontend/.env.local
 NEXT_PUBLIC_API_URL=http://localhost:8000
@@ -103,7 +103,7 @@ cd backend/metadata-service && npm run dev
 ## 📁 Project Structure
 
 ```
-solix-edg/
+OpenEDG/
 ├── frontend/                    # Next.js web application
 │   ├── src/
 │   │   ├── app/                # App router pages
