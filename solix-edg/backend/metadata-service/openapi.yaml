@@ -1,0 +1,111 @@
+openapi: 3.0.3
+info:
+  title: Solix EDG Metadata Service API
+  version: 1.0.0
+  description: API for interacting with OpenMetadata
+
+servers:
+  - url: http://localhost:3001/api
+
+paths:
+  /catalog/assets:
+    get:
+      summary: List metadata assets
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Asset'
+
+  /catalog/assets/{id}:
+    get:
+      summary: Get asset details
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Asset'
+
+  /lineage/{assetId}:
+    get:
+      summary: Get asset lineage
+      parameters:
+        - name: assetId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Lineage'
+
+  /catalog/update-description:
+    post:
+      summary: Update asset description
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                id:
+                  type: string
+                description:
+                  type: string
+      responses:
+        '200':
+          description: Successful response
+
+components:
+  schemas:
+    Asset:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        type:
+          type: string
+        description:
+          type: string
+        owner:
+          type: string
+        domain:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        lastUpdated:
+          type: string
+          format: date-time
+
+    Lineage:
+      type: object
+      properties:
+        upstream:
+          type: array
+          items:
+            $ref: '#/components/schemas/Asset'
+        downstream:
+          type: array
+          items:
+            $ref: '#/components/schemas/Asset'

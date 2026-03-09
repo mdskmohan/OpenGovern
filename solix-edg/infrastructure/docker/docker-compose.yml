@@ -1,0 +1,144 @@
+version: '3.8'
+
+services:
+  # Frontend
+  frontend:
+    build: ../../frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+    depends_on:
+      - api-gateway
+
+  # API Gateway
+  api-gateway:
+    build: ./api-gateway
+    ports:
+      - "8000:8000"
+    depends_on:
+      - metadata-service
+      - policy-service
+      - workflow-service
+      - alerts-service
+      - integration-service
+      - ai-service
+      - reverse-metadata-sync-service
+
+  # Backend Services
+  metadata-service:
+    build: ../../backend/metadata-service
+    environment:
+      - OPENMETADATA_URL=http://openmetadata:8585
+      - DATABASE_URL=postgresql://user:password@postgres:5432/solix_edg
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - postgres
+      - redis
+
+  policy-service:
+    build: ../../backend/policy-service
+    environment:
+      - OPA_URL=http://opa:8181
+      - DATABASE_URL=postgresql://user:password@postgres:5432/solix_edg
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - postgres
+      - redis
+
+  workflow-service:
+    build: ../../backend/workflow-service
+    environment:
+      - DATABASE_URL=postgresql://user:password@postgres:5432/solix_edg
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - postgres
+      - redis
+
+  alerts-service:
+    build: ../../backend/alerts-service
+    environment:
+      - DATABASE_URL=postgresql://user:password@postgres:5432/solix_edg
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - postgres
+      - redis
+
+  integration-service:
+    build: ../../backend/integration-service
+    environment:
+      - DATABASE_URL=postgresql://user:password@postgres:5432/solix_edg
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - postgres
+      - redis
+
+  ai-service:
+    build: ../../backend/ai-service
+    environment:
+      - VECTOR_DB_URL=http://vector-db:6333
+      - DATABASE_URL=postgresql://user:password@postgres:5432/solix_edg
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - postgres
+      - redis
+      - vector-db
+
+  reverse-metadata-sync-service:
+    build: ../../backend/reverse-metadata-sync-service
+    environment:
+      - OPENMETADATA_URL=http://openmetadata:8585
+      - DATABASE_URL=postgresql://user:password@postgres:5432/solix_edg
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - postgres
+      - redis
+
+  # External Systems
+  openmetadata:
+    image: openmetadata/standalone:latest
+    ports:
+      - "8585:8585"
+    environment:
+      - OPENMETADATA_CLUSTER_NAME=solix-edg
+    volumes:
+      - openmetadata_data:/data
+
+  opa:
+    image: openpolicyagent/opa:latest
+    ports:
+      - "8181:8181"
+    command: ["run", "--server", "/policies"]
+
+  vector-db:
+    image: qdrant/qdrant:latest
+    ports:
+      - "6333:6333"
+    volumes:
+      - vector_data:/qdrant/storage
+
+  # Data Layer
+  postgres:
+    image: postgres:15
+    environment:
+      - POSTGRES_DB=solix_edg
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+volumes:
+  postgres_data:
+  redis_data:
+  openmetadata_data:
+  vector_data:
