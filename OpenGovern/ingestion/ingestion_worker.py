@@ -128,7 +128,7 @@ def create_recipe(source: dict) -> dict:
         'sink': {
             'type': 'datahub-rest',  # DataHub REST sink — we intercept and proxy
             'config': {
-                'server': f'{CORE_API_URL}/api/v1/datahub-proxy',
+                'server': f'{CORE_API_URL}/api/v1/metadata-ingest',
                 'token': ''
             }
         }

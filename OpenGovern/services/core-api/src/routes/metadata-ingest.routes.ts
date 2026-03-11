@@ -1,8 +1,8 @@
 /**
  * DataHub GMS Proxy Routes
  *
- * Mounted at /api/v1/datahub-proxy — mirrors the DataHub GMS REST API
- * so the datahub-rest sink can write directly into OpenGovern's PostgreSQL.
+ * Mounted at /api/v1/metadata-ingest — OpenGovern metadata ingestion API
+ * Receives MCP payloads from the ingestion worker and writes to our PostgreSQL.
  */
 
 import { Router } from 'express';
@@ -12,7 +12,7 @@ import {
   ingestProposalBatch,
   ingestEntities,
   proxyHealth,
-} from '../controllers/datahub-proxy.controller';
+} from '../controllers/metadata-ingest.controller';
 
 const router = Router();
 

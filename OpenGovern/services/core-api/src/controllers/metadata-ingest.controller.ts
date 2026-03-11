@@ -411,5 +411,5 @@ export async function ingestProposalBatch(req: Request, res: Response): Promise<
 
 /** Health endpoint that DataHub REST emitter may ping */
 export function proxyHealth(_req: Request, res: Response): void {
-  res.json({ status: 'ok', service: 'opengovern-datahub-proxy' });
+  res.json({ status: 'ok', service: 'opengovern-metadata-ingest' });
 }

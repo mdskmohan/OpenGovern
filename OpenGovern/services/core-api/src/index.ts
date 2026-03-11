@@ -16,7 +16,7 @@ import searchRoutes from './routes/search.routes';
 import domainsRoutes from './routes/domains.routes';
 import tagsRoutes from './routes/tags.routes';
 import sourcesRoutes from './routes/sources.routes';
-import datahubProxyRoutes from './routes/datahub-proxy.routes';
+import metadataIngestRoutes from './routes/metadata-ingest.routes';
 
 // ─── Request Logger ────────────────────────────────────────────────────────────
 
@@ -87,7 +87,7 @@ v1.use('/sources', requireAuth, sourcesRoutes);
 
 // DataHub GMS proxy — no auth required (called internally by ingestion-worker)
 // The ingestion worker runs inside Docker and is not internet-accessible
-v1.use('/datahub-proxy', datahubProxyRoutes);
+v1.use('/metadata-ingest', metadataIngestRoutes);
 
 app.use('/api/v1', v1);
 
