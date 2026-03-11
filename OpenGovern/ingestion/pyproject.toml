@@ -1,0 +1,41 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "opengovern-ingestion"
+version = "1.0.0"
+description = "OpenGovern ingestion framework — connects data sources to OpenGovern's catalog"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    # DataHub ingestion — gives us 50+ connectors for free
+    # We only write the sink; all source connectors come from this package
+    "acryl-datahub[snowflake,bigquery,dbt-cloud,looker,tableau,kafka,postgres,mysql,redshift,airflow]>=0.12.0",
+    # OpenMetadata ingestion — for OM-specific sources and data quality integration
+    "openmetadata-ingestion[snowflake,bigquery,dbt,postgres]>=1.3.0",
+    # Core dependencies
+    "pydantic>=2.0",
+    "pydantic-settings>=2.0",
+    "httpx>=0.25",          # async HTTP client for API calls
+    "sqlglot>=20.0",        # SQL parser for lineage extraction
+    "click>=8.1",           # CLI framework
+    "rich>=13.0",           # Beautiful terminal output
+    "PyYAML>=6.0",          # Recipe file parsing
+    "python-dotenv>=1.0",   # .env file support
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-asyncio>=0.21",
+    "httpx[asyncio]>=0.25",
+]
+
+[project.scripts]
+# The main CLI entry point
+opengovern = "opengovern_ingestion.cli.main:cli"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["opengovern_ingestion*"]

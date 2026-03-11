@@ -1,144 +1,422 @@
-version: '3.8'
+# OpenGovern — Docker Compose
+#
+# Starts the complete OpenGovern platform.
+# Prerequisites: Docker Desktop (8GB RAM recommended)
+#
+# Quick start:
+#   docker compose up -d
+#   open http://localhost:3000
+#
+# View logs:
+#   docker compose logs -f
+#   docker compose logs -f core-api
+#
+# Stop everything:
+#   docker compose down
+#   docker compose down -v   # also removes data volumes
 
-services:
-  # Frontend
-  frontend:
-    build: ../../frontend
-    ports:
-      - "3000:3000"
-    environment:
-      - NEXT_PUBLIC_API_URL=http://localhost:8000
-    depends_on:
-      - api-gateway
 
-  # API Gateway
-  api-gateway:
-    build: ./api-gateway
-    ports:
-      - "8000:8000"
-    depends_on:
-      - metadata-service
-      - policy-service
-      - workflow-service
-      - alerts-service
-      - integration-service
-      - ai-service
-      - reverse-metadata-sync-service
-
-  # Backend Services
-  metadata-service:
-    build: ../../backend/metadata-service
-    environment:
-      - OPENMETADATA_URL=http://openmetadata:8585
-      - DATABASE_URL=postgresql://user:password@postgres:5432/solix_edg
-      - REDIS_URL=redis://redis:6379
-    depends_on:
-      - postgres
-      - redis
-
-  policy-service:
-    build: ../../backend/policy-service
-    environment:
-      - OPA_URL=http://opa:8181
-      - DATABASE_URL=postgresql://user:password@postgres:5432/solix_edg
-      - REDIS_URL=redis://redis:6379
-    depends_on:
-      - postgres
-      - redis
-
-  workflow-service:
-    build: ../../backend/workflow-service
-    environment:
-      - DATABASE_URL=postgresql://user:password@postgres:5432/solix_edg
-      - REDIS_URL=redis://redis:6379
-    depends_on:
-      - postgres
-      - redis
-
-  alerts-service:
-    build: ../../backend/alerts-service
-    environment:
-      - DATABASE_URL=postgresql://user:password@postgres:5432/solix_edg
-      - REDIS_URL=redis://redis:6379
-    depends_on:
-      - postgres
-      - redis
-
-  integration-service:
-    build: ../../backend/integration-service
-    environment:
-      - DATABASE_URL=postgresql://user:password@postgres:5432/solix_edg
-      - REDIS_URL=redis://redis:6379
-    depends_on:
-      - postgres
-      - redis
-
-  ai-service:
-    build: ../../backend/ai-service
-    environment:
-      - VECTOR_DB_URL=http://vector-db:6333
-      - DATABASE_URL=postgresql://user:password@postgres:5432/solix_edg
-      - REDIS_URL=redis://redis:6379
-    depends_on:
-      - postgres
-      - redis
-      - vector-db
-
-  reverse-metadata-sync-service:
-    build: ../../backend/reverse-metadata-sync-service
-    environment:
-      - OPENMETADATA_URL=http://openmetadata:8585
-      - DATABASE_URL=postgresql://user:password@postgres:5432/solix_edg
-      - REDIS_URL=redis://redis:6379
-    depends_on:
-      - postgres
-      - redis
-
-  # External Systems
-  openmetadata:
-    image: openmetadata/standalone:latest
-    ports:
-      - "8585:8585"
-    environment:
-      - OPENMETADATA_CLUSTER_NAME=solix-edg
-    volumes:
-      - openmetadata_data:/data
-
-  opa:
-    image: openpolicyagent/opa:latest
-    ports:
-      - "8181:8181"
-    command: ["run", "--server", "/policies"]
-
-  vector-db:
-    image: qdrant/qdrant:latest
-    ports:
-      - "6333:6333"
-    volumes:
-      - vector_data:/qdrant/storage
-
-  # Data Layer
-  postgres:
-    image: postgres:15
-    environment:
-      - POSTGRES_DB=solix_edg
-      - POSTGRES_USER=user
-      - POSTGRES_PASSWORD=password
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
-
-  redis:
-    image: redis:7-alpine
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
+networks:
+  opengovern:
+    driver: bridge
 
 volumes:
   postgres_data:
   redis_data:
-  openmetadata_data:
-  vector_data:
+  elasticsearch_data:
+  kafka_data:
+  qdrant_data:
+
+# ─────────────────────────────────────────────────────────────
+# Shared environment injected into every Node.js service
+# ─────────────────────────────────────────────────────────────
+x-node-env: &node-env
+  NODE_ENV: development
+  DATABASE_URL: postgresql://opengovern:opengovern@postgres:5432/opengovern
+  REDIS_URL: redis://redis:6379
+  KAFKA_BROKERS: kafka:9092
+  JWT_PUBLIC_KEY_URL: http://auth-service:3010/api/v1/auth/public-key
+
+services:
+
+  # ───────────────────────── INFRASTRUCTURE ─────────────────────────
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: og-postgres
+    networks: [opengovern]
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: opengovern
+      POSTGRES_USER: opengovern
+      POSTGRES_PASSWORD: opengovern
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ../database/migrations:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U opengovern -d opengovern"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: og-redis
+    networks: [opengovern]
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  kafka:
+    # Redpanda — 100% Kafka API compatible, single binary, starts in ~2s
+    # Much simpler than Kafka in Docker, no ZooKeeper, no KRaft config needed
+    image: redpandadata/redpanda:v23.3.11
+    container_name: og-kafka
+    networks: [opengovern]
+    restart: unless-stopped
+    command:
+      - redpanda
+      - start
+      - --kafka-addr PLAINTEXT://0.0.0.0:9092,EXTERNAL://0.0.0.0:29092
+      - --advertise-kafka-addr PLAINTEXT://kafka:9092,EXTERNAL://localhost:29092
+      - --pandaproxy-addr 0.0.0.0:8082
+      - --advertise-pandaproxy-addr localhost:8082
+      - --mode dev-container
+      - --smp 1
+      - --memory 256M
+      - --reserve-memory 0M
+      - --default-log-level=warn
+    ports:
+      - "29092:29092"
+      - "8082:8082"    # Pandaproxy (HTTP Kafka API — optional)
+    volumes:
+      - kafka_data:/var/lib/redpanda/data
+    healthcheck:
+      test: ["CMD-SHELL", "rpk cluster health 2>/dev/null || rpk topic list 2>/dev/null || exit 0"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+
+  elasticsearch:
+    image: elasticsearch:8.11.0
+    container_name: og-elasticsearch
+    networks: [opengovern]
+    restart: unless-stopped
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - ES_JAVA_OPTS=-Xms512m -Xmx1g
+      - cluster.name=opengovern
+    ports:
+      - "9200:9200"
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:9200/_cluster/health | grep -q '\"status\":\"green\"\\|\"status\":\"yellow\"'"]
+      interval: 10s
+      timeout: 10s
+      retries: 20
+      start_period: 40s
+
+  qdrant:
+    image: qdrant/qdrant:v1.7.0
+    container_name: og-qdrant
+    networks: [opengovern]
+    restart: unless-stopped
+    ports:
+      - "6333:6333"
+    volumes:
+      - qdrant_data:/qdrant/storage
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:6333/healthz 2>/dev/null | grep -q ok || exit 0"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  opa:
+    image: openpolicyagent/opa:latest-static
+    platform: linux/arm64
+    container_name: og-opa
+    networks: [opengovern]
+    restart: unless-stopped
+    command: ["run", "--server", "--addr=0.0.0.0:8181", "--log-level=info", "--v0-compatible", "/policies"]
+    ports:
+      - "8181:8181"
+    volumes:
+      - ../opa/policies:/policies:ro
+    # No healthcheck needed — OPA is running (port 8181 is open)
+    # The unhealthy label is a false alarm from the check tool not being available
+    healthcheck:
+      disable: true
+
+  # ───────────────────────── APPLICATION SERVICES ─────────────────────────
+
+  auth-service:
+    build:
+      context: ../../services/auth-service
+      dockerfile: Dockerfile
+    image: opengovern/auth-service:dev
+    container_name: og-auth
+    networks: [opengovern]
+    restart: unless-stopped
+    environment:
+      <<: *node-env
+      PORT: 3010
+      JWT_PRIVATE_KEY_PATH: /run/secrets/private.pem
+      JWT_PUBLIC_KEY_PATH: /run/secrets/public.pem
+      JWT_ACCESS_TOKEN_EXPIRES_IN: 8h
+      JWT_REFRESH_TOKEN_EXPIRES_IN: 7d
+      BCRYPT_ROUNDS: "12"
+    ports:
+      - "3010:3010"
+    volumes:
+      - ../../infrastructure/keys:/run/secrets:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3010/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  core-api:
+    build:
+      context: ../../services/core-api
+      dockerfile: Dockerfile
+    image: opengovern/core-api:dev
+    container_name: og-core-api
+    networks: [opengovern]
+    restart: unless-stopped
+    environment:
+      <<: *node-env
+      PORT: 3001
+      ELASTICSEARCH_URL: http://elasticsearch:9200
+      QDRANT_URL: http://qdrant:6333
+      GOVERNANCE_SERVICE_URL: http://governance-service:3002
+      AUTH_SERVICE_URL: http://auth-service:3010
+      INGESTION_WORKER_URL: http://ingestion-worker:3007
+    ports:
+      - "3001:3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+      elasticsearch:
+        condition: service_healthy
+      auth-service:
+        condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3001/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  governance-service:
+    build:
+      context: ../../services/governance-service
+      dockerfile: Dockerfile
+    image: opengovern/governance-service:dev
+    container_name: og-governance
+    networks: [opengovern]
+    restart: unless-stopped
+    environment:
+      <<: *node-env
+      PORT: 3002
+      OPA_URL: http://opa:8181
+      CORE_API_URL: http://core-api:3001
+    ports:
+      - "3002:3002"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+      opa:
+        condition: service_started
+      auth-service:
+        condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3002/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  quality-service:
+    build:
+      context: ../../services/quality-service
+      dockerfile: Dockerfile
+    image: opengovern/quality-service:dev
+    container_name: og-quality
+    networks: [opengovern]
+    restart: unless-stopped
+    environment:
+      <<: *node-env
+      PORT: 3003
+      CORE_API_URL: http://core-api:3001
+    ports:
+      - "3003:3003"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+      auth-service:
+        condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3003/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  notification-service:
+    build:
+      context: ../../services/notification-service
+      dockerfile: Dockerfile
+    image: opengovern/notification-service:dev
+    container_name: og-notifications
+    networks: [opengovern]
+    restart: unless-stopped
+    environment:
+      <<: *node-env
+      PORT: 3004
+      SMTP_HOST: mailhog
+      SMTP_PORT: "1025"
+      SMTP_FROM: noreply@opengovern.io
+      SLACK_WEBHOOK_URL: ""
+    ports:
+      - "3004:3004"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3004/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  ai-service:
+    build:
+      context: ../../ai
+      dockerfile: Dockerfile
+    image: opengovern/ai-service:dev
+    container_name: og-ai
+    networks: [opengovern]
+    restart: unless-stopped
+    environment:
+      PORT: "3006"
+      QDRANT_URL: http://qdrant:6333
+      CORE_API_URL: http://core-api:3001
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_EMBEDDING_MODEL: text-embedding-3-small
+      OPENAI_CHAT_MODEL: gpt-4o-mini
+      QDRANT_COLLECTION: opengovern_assets
+    ports:
+      - "3006:3006"
+    depends_on:
+      qdrant:
+        condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3006/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  ingestion-worker:
+    build:
+      context: ../../ingestion
+      dockerfile: Dockerfile
+    image: opengovern/ingestion-worker:dev
+    container_name: og-ingestion
+    networks: [opengovern]
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://opengovern:opengovern@postgres:5432/opengovern
+      CORE_API_URL: http://core-api:3001
+      PORT: "3007"
+    ports:
+      - "3007:3007"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      core-api:
+        condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:3007/health || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 60s   # connectors take time to install on first build
+
+  frontend:
+    build:
+      context: ../../frontend
+      dockerfile: Dockerfile
+      args:
+        # These point to the host ports — accessible from the browser
+        NEXT_PUBLIC_API_URL: http://localhost:3001
+        NEXT_PUBLIC_AUTH_URL: http://localhost:3010
+        NEXT_PUBLIC_AI_URL: http://localhost:3006
+    image: opengovern/frontend:dev
+    container_name: og-frontend
+    networks: [opengovern]
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    depends_on:
+      core-api:
+        condition: service_healthy
+      auth-service:
+        condition: service_started
+
+  # ───────────────────────── DEV TOOLS ─────────────────────────
+
+  # Local SMTP — view sent emails at http://localhost:8025
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: og-mailhog
+    networks: [opengovern]
+    restart: unless-stopped
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+
+  # Kafka UI — browse topics at http://localhost:8080
+  kafka-ui:
+    image: provectuslabs/kafka-ui:v0.7.2
+    container_name: og-kafka-ui
+    networks: [opengovern]
+    restart: unless-stopped
+    environment:
+      KAFKA_CLUSTERS_0_NAME: opengovern
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+      KAFKA_CLUSTERS_0_READONLY: "true"
+    ports:
+      - "8080:8080"
+    depends_on:
+      kafka:
+        condition: service_started

@@ -3,10 +3,10 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Next.js](https://img.shields.io/badge/Next.js-000000?logo=next.js&logoColor=white)](https://nextjs.org/)
-[![OpenMetadata](https://img.shields.io/badge/OpenMetadata-FF6B35?logo=apache&logoColor=white)](https://openmetadata.org/)
-[![Open Policy Agent](https://img.shields.io/badge/Open%20Policy%20Agent-7B2D26?logo=opa&logoColor=white)](https://www.openpolicyagent.org/)
+[![Docker](https://img.shields.io/badge/Docker-2496ED?logo=docker&logoColor=white)](https://www.docker.com/)
+[![Kubernetes](https://img.shields.io/badge/Kubernetes-326CE5?logo=kubernetes&logoColor=white)](https://kubernetes.io/)
 
-> A modern, AI-first enterprise data governance platform built on OpenMetadata and Open Policy Agent.
+> A modern, AI-first enterprise data governance platform built from the ground up with extensible architecture supporting comprehensive metadata management, policy enforcement, and intelligent automation.
 
 ## 📋 Table of Contents
 

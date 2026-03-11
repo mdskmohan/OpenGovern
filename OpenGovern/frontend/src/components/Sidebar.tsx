@@ -1,125 +1,154 @@
-/**
- * OpenGovern Sidebar Navigation Component
- *
- * Main navigation component that provides access to all major sections of the platform.
- * Implements a dark-themed sidebar with icons and labels for each navigation item.
- *
- * Key Features:
- * - Active route highlighting based on current pathname
- * - Responsive hover effects and visual feedback
- * - Comprehensive navigation covering all platform features
- * - Clean, modern design with consistent spacing
- *
- * Navigation Structure:
- * - Core Features: Home, Catalog, Lineage, Data Quality
- * - Governance: Policies, Classifications, Metrics
- * - Operations: Alerts, Workflows, Integrations
- * - Administration: Users & Roles, Documentation, Settings
- *
- * Technical Implementation:
- * - Uses Next.js Link for client-side navigation
- * - usePathname hook for active route detection
- * - TailwindCSS for styling and responsive design
- * - Emoji icons for visual clarity and modern aesthetic
- */
+'use client';
 
-"use client"; // Required for Next.js client-side hooks (usePathname)
-
-/**
- * Navigation Configuration Array
- *
- * Defines all navigation items with their properties:
- * - name: Display name in the sidebar
- * - href: Route path for navigation
- * - icon: Emoji icon for visual identification
- *
- * Organized by functional areas for logical grouping and user experience.
- */
-const navigation = [
-  // Core Platform Features
-  { name: 'Home', href: '/', icon: '🏠' }, // Dashboard and overview
-  { name: 'Catalog', href: '/catalog', icon: '📚' }, // Metadata catalog browser
-  { name: 'Lineage', href: '/lineage', icon: '🔗' }, // Data lineage visualization
-  { name: 'Data Quality', href: '/data-quality', icon: '✅' }, // Quality monitoring dashboard
-
-  // Governance & Policies
-  { name: 'Policies', href: '/policies', icon: '📋' }, // Policy management interface
-  { name: 'Classifications', href: '/classifications', icon: '🏷️' }, // Data classification tags
-
-  // Analytics & Monitoring
-  { name: 'Metrics', href: '/metrics', icon: '📊' }, // Platform metrics and KPIs
-
-  // Operations & Alerts
-  { name: 'Alerts', href: '/alerts', icon: '🚨' }, // System alerts and notifications
-  { name: 'Workflows', href: '/workflows', icon: '⚙️' }, // Governance workflow management
-
-  // Integrations & Connectivity
-  { name: 'Integrations', href: '/integrations', icon: '🔌' }, // Data source integrations
-
-  // User Management & Administration
-  { name: 'Users & Roles', href: '/users', icon: '👥' }, // User and role management
-
-  // Documentation & Help
-  { name: 'Documentation', href: '/docs', icon: '📖' }, // Platform documentation
-
-  // System Configuration
-  { name: 'Settings', href: '/settings', icon: '⚙️' }, // Platform settings and configuration
-];
-
+import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import {
+  Database,
+  GitBranch,
+  Shield,
+  GitPullRequest,
+  Tag,
+  CheckCircle2,
+  Bell,
+  Plug,
+  BarChart3,
+  Users,
+  Settings,
+  LogOut,
+} from 'lucide-react';
+import { cn } from './ui/cn';
+import { useAuthStore } from '@/lib/auth';
 
-/**
- * Sidebar Component
- *
- * Renders the main navigation sidebar with:
- * - Platform branding header
- * - Navigation menu with active state highlighting
- * - Responsive design for different screen sizes
- * - Consistent styling with the overall application theme
- *
- * State Management:
- * - Uses usePathname() to determine active navigation item
- * - No internal state - purely presentational component
- *
- * Accessibility:
- * - Semantic navigation structure
- * - Clear visual indicators for active states
- * - Keyboard navigation support through Next.js Link
- */
-export default function Sidebar() {
-  // Get current pathname for active route highlighting
+const navigation = [
+  {
+    group: 'DISCOVER',
+    items: [
+      { name: 'Catalog', href: '/catalog', icon: Database },
+      { name: 'Lineage', href: '/lineage', icon: GitBranch },
+    ],
+  },
+  {
+    group: 'GOVERN',
+    items: [
+      { name: 'Policies', href: '/policies', icon: Shield },
+      { name: 'Workflows', href: '/workflows', icon: GitPullRequest },
+      { name: 'Classifications', href: '/classifications', icon: Tag },
+    ],
+  },
+  {
+    group: 'QUALITY',
+    items: [
+      { name: 'Data Quality', href: '/data-quality', icon: CheckCircle2 },
+      { name: 'Alerts', href: '/alerts', icon: Bell },
+    ],
+  },
+  {
+    group: 'CONNECT',
+    items: [
+      { name: 'Integrations', href: '/integrations', icon: Plug },
+      { name: 'Metrics', href: '/metrics', icon: BarChart3 },
+    ],
+  },
+  {
+    group: 'ADMIN',
+    items: [
+      { name: 'Users', href: '/users', icon: Users },
+      { name: 'Settings', href: '/settings', icon: Settings },
+    ],
+  },
+];
+
+export function Sidebar() {
   const pathname = usePathname();
+  const { user, logout } = useAuthStore();
+
+  const isActive = (href: string) =>
+    pathname === href || (href !== '/' && pathname.startsWith(href + '/'));
 
   return (
-    // Main sidebar container - fixed width, full height, dark theme
-    <div className="flex h-full w-64 flex-col bg-gray-900 text-white">
-      {/* Header section with platform branding */}
-      <div className="flex h-16 items-center px-4">
-        <h1 className="text-xl font-bold">OpenGovern</h1>
+    <aside className="fixed left-0 top-0 h-full w-60 bg-[#f3f4f6] border-r border-gray-200 flex flex-col z-40">
+      {/* Logo */}
+      <div className="h-14 flex items-center px-4 border-b border-gray-200">
+        <Link href="/" className="flex items-center gap-2.5">
+          <div className="w-7 h-7 bg-blue-600 rounded-md flex items-center justify-center">
+            <Shield size={14} className="text-white" />
+          </div>
+          <span className="text-sm font-semibold text-gray-900">OpenGovern</span>
+        </Link>
       </div>
 
-      {/* Navigation menu - scrollable area with navigation items */}
-      <nav className="flex-1 space-y-1 px-2 py-4">
-        {/* Map through navigation items to create menu links */}
-        {navigation.map((item) => (
-          <Link
-            key={item.name} // Unique key for React rendering
-            href={item.href} // Navigation destination
-            className={`group flex items-center rounded-md px-2 py-2 text-sm font-medium ${
-              // Conditional styling based on active route
-              pathname === item.href
-                ? 'bg-gray-800 text-white' // Active state: darker background
-                : 'text-gray-300 hover:bg-gray-700 hover:text-white' // Inactive: lighter with hover
-            }`}
-          >
-            {/* Navigation icon with consistent spacing */}
-            <span className="mr-3">{item.icon}</span>
-            {/* Navigation label */}
-            {item.name}
-          </Link>
+      {/* Navigation */}
+      <nav className="flex-1 overflow-y-auto py-3 px-2">
+        {navigation.map((section) => (
+          <div key={section.group} className="mb-5">
+            <p className="px-3 pb-1 text-[10px] font-semibold text-gray-400 uppercase tracking-widest">
+              {section.group}
+            </p>
+            <div className="space-y-0.5">
+              {section.items.map((item) => {
+                const active = isActive(item.href);
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={cn(
+                      'flex items-center gap-2.5 px-3 py-2 text-sm rounded-md transition-colors duration-100 relative',
+                      active
+                        ? 'bg-white text-blue-600 font-medium shadow-[0_1px_2px_rgba(0,0,0,0.06)]'
+                        : 'text-gray-600 hover:bg-white/60 hover:text-gray-900'
+                    )}
+                  >
+                    {active && (
+                      <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-4 bg-blue-600 rounded-r-full" />
+                    )}
+                    <item.icon
+                      size={15}
+                      className={cn(
+                        'shrink-0 transition-colors',
+                        active ? 'text-blue-600' : 'text-gray-400'
+                      )}
+                    />
+                    <span>{item.name}</span>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
         ))}
       </nav>
-    </div>
+
+      {/* User footer */}
+      <div className="border-t border-gray-200 p-3">
+        {user ? (
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-xs font-semibold shrink-0 uppercase">
+              {(user.fullName || user.username || user.email).charAt(0)}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-medium text-gray-900 truncate">
+                {user.fullName || user.username}
+              </p>
+              <p className="text-[11px] text-gray-500 truncate">{user.email}</p>
+            </div>
+            <button
+              onClick={logout}
+              className="p-1.5 rounded text-gray-400 hover:text-gray-600 hover:bg-gray-200 transition-colors"
+              title="Sign out"
+            >
+              <LogOut size={13} />
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-full bg-gray-200 animate-pulse shrink-0" />
+            <div className="flex-1 space-y-1.5">
+              <div className="h-2.5 bg-gray-200 rounded animate-pulse" />
+              <div className="h-2 bg-gray-200 rounded w-3/4 animate-pulse" />
+            </div>
+          </div>
+        )}
+      </div>
+    </aside>
   );
 }

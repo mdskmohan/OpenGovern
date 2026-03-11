@@ -1,312 +1,323 @@
-/**
- * OpenGovern Dashboard - Main Landing Page
- *
- * This is the primary dashboard component that serves as the main entry point
- * for the OpenGovern (Enterprise Data Governance) platform. It displays key
- * governance metrics, recent activity, and provides navigation to various
- * platform features.
- *
- * Key Features:
- * - Real-time governance metrics (datasets, dashboards, pipelines, ML models)
- * - Interactive charts for metadata growth and governance coverage
- * - Recent activity feed showing platform events
- * - AI assistant preview for conversational data governance
- *
- * Architecture:
- * - Built with Next.js 14 App Router
- * - Uses TailwindCSS for responsive, modern styling
- * - Implements OpenAI/Notion-inspired design patterns
- * - Fully responsive across desktop, tablet, and mobile devices
- *
- * Data Sources:
- * - Metrics: Fetched from OpenMetadata API and internal analytics
- * - Activity: Real-time events from platform services
- * - Charts: Placeholder for future integration with charting libraries
- */
+'use client';
 
-"use client"; // Required for client-side interactivity in Next.js App Router
+import React from 'react';
+import Link from 'next/link';
+import {
+  Database,
+  Shield,
+  GitPullRequest,
+  Bell,
+  TrendingUp,
+  CheckCircle,
+  Clock,
+  ArrowRight,
+  Play,
+  Plus,
+  Key,
+} from 'lucide-react';
+import {
+  PieChart,
+  Pie,
+  Cell,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+} from 'recharts';
+import { StatCard } from '@/components/ui/Card';
+import { Badge, getWorkflowStatusVariant, getAlertSeverityVariant } from '@/components/ui/Badge';
+import { Button } from '@/components/ui/Button';
+import { useAssetStats } from '@/hooks/useAssets';
+import { usePolicies } from '@/hooks/usePolicies';
+import { useWorkflowInstances } from '@/hooks/useWorkflows';
+import { useAlerts } from '@/hooks/useAlerts';
+import { formatDistanceToNow } from 'date-fns';
 
-/**
- * Home Component - Main Dashboard Page
- *
- * Renders the comprehensive dashboard with:
- * 1. Welcome header with platform branding
- * 2. Key performance indicator (KPI) cards
- * 3. Analytics charts section
- * 4. Recent activity feed
- * 5. AI assistant call-to-action
- *
- * The component uses a modern card-based layout with gradients,
- * hover effects, and responsive grid system for optimal UX.
- */
-export default function Home() {
+const CHART_COLORS = ['#2563eb', '#16a34a', '#9333ea', '#f59e0b', '#ec4899', '#06b6d4'];
+
+export default function DashboardPage() {
+  const { data: stats, isLoading: statsLoading } = useAssetStats();
+  const { data: policies } = usePolicies({ isActive: true });
+  const { data: workflows } = useWorkflowInstances({ limit: 5 });
+  const { data: alerts } = useAlerts({ status: 'open', limit: 5 });
+
+  // Build pie chart data from asset stats
+  const assetTypeData = stats?.byType
+    ? Object.entries(stats.byType).map(([name, value]) => ({ name, value }))
+    : [
+        { name: 'table', value: 1200 },
+        { name: 'dashboard', value: 340 },
+        { name: 'pipeline', value: 180 },
+        { name: 'ml_model', value: 45 },
+      ];
+
+  const qualityData = stats?.qualityDistribution
+    ? [
+        { name: 'Excellent (>90)', value: stats.qualityDistribution.excellent, fill: '#16a34a' },
+        { name: 'Good (70-90)', value: stats.qualityDistribution.good, fill: '#2563eb' },
+        { name: 'Fair (50-70)', value: stats.qualityDistribution.fair, fill: '#f59e0b' },
+        { name: 'Poor (<50)', value: stats.qualityDistribution.poor, fill: '#ef4444' },
+      ]
+    : [
+        { name: 'Excellent (>90)', value: 45, fill: '#16a34a' },
+        { name: 'Good (70-90)', value: 30, fill: '#2563eb' },
+        { name: 'Fair (50-70)', value: 15, fill: '#f59e0b' },
+        { name: 'Poor (<50)', value: 10, fill: '#ef4444' },
+      ];
+
+  const recentWorkflows = workflows?.data?.slice(0, 5) || [];
+  const recentAlerts = alerts?.data?.slice(0, 5) || [];
+
   return (
-    // Main container with vertical spacing between sections
-    <div className="space-y-12">
-      {/* Welcome Section - Platform Introduction */}
-      <div className="text-center">
-        {/* Main heading with light font weight for modern aesthetic */}
-        <h1 className="text-5xl font-light text-gray-900 mb-4">
-          Welcome to OpenGovern
-        </h1>
-        {/* Subtitle explaining the platform's core value proposition */}
-        <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-          Your AI-first enterprise data governance platform, powered by OpenMetadata and Open Policy Agent
-        </p>
+    <div className="space-y-6">
+      {/* Stats row */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard
+          label="Total Assets"
+          value={statsLoading ? '—' : (stats?.total ?? 1765)}
+          icon={<Database size={16} />}
+          trend={{ value: 12, label: 'this month' }}
+        />
+        <StatCard
+          label="Certified Assets"
+          value={statsLoading ? '—' : (stats?.certified ?? 423)}
+          icon={<CheckCircle size={16} />}
+          trend={{ value: 8, label: 'this month' }}
+        />
+        <StatCard
+          label="Active Policies"
+          value={policies?.total ?? 38}
+          icon={<Shield size={16} />}
+        />
+        <StatCard
+          label="Open Workflows"
+          value={workflows?.total ?? 14}
+          icon={<GitPullRequest size={16} />}
+        />
       </div>
 
-      {/* Key Metrics Section - Governance KPIs */}
-      {/* Responsive grid: 1 column on mobile, 2 on tablet, 4 on desktop */}
-      <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-4">
-        {/* Total Datasets Metric Card */}
-        <div className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-blue-50 to-blue-100 p-8 shadow-sm hover:shadow-xl transition-all duration-300">
-          {/* Decorative background circle for visual appeal */}
-          <div className="absolute top-0 right-0 w-32 h-32 bg-blue-200 rounded-full -mr-16 -mt-16 opacity-20 group-hover:opacity-30 transition-opacity"></div>
-          <div className="relative">
-            {/* Icon container with blue background */}
-            <div className="flex items-center justify-between mb-4">
-              <div className="p-3 bg-blue-500 rounded-xl">
-                <span className="text-white text-2xl">📊</span>
-              </div>
-            </div>
-            {/* Metric content with label, value, and trend */}
-            <div className="space-y-2">
-              <p className="text-sm font-medium text-blue-600 uppercase tracking-wide">
-                Total Datasets
-              </p>
-              <p className="text-4xl font-light text-gray-900">1,234</p>
-              <p className="text-sm text-gray-600">+12% from last month</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Dashboards Metric Card */}
-        <div className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-green-50 to-green-100 p-8 shadow-sm hover:shadow-xl transition-all duration-300">
-          {/* Decorative background circle */}
-          <div className="absolute top-0 right-0 w-32 h-32 bg-green-200 rounded-full -mr-16 -mt-16 opacity-20 group-hover:opacity-30 transition-opacity"></div>
-          <div className="relative">
-            {/* Icon container with green background */}
-            <div className="flex items-center justify-between mb-4">
-              <div className="p-3 bg-green-500 rounded-xl">
-                <span className="text-white text-2xl">📈</span>
-              </div>
-            </div>
-            {/* Metric content */}
-            <div className="space-y-2">
-              <p className="text-sm font-medium text-green-600 uppercase tracking-wide">
-                Dashboards
-              </p>
-              <p className="text-4xl font-light text-gray-900">567</p>
-              <p className="text-sm text-gray-600">+8% from last month</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Pipelines Metric Card */}
-        <div className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-purple-50 to-purple-100 p-8 shadow-sm hover:shadow-xl transition-all duration-300">
-          {/* Decorative background circle */}
-          <div className="absolute top-0 right-0 w-32 h-32 bg-purple-200 rounded-full -mr-16 -mt-16 opacity-20 group-hover:opacity-30 transition-opacity"></div>
-          <div className="relative">
-            {/* Icon container with purple background */}
-            <div className="flex items-center justify-between mb-4">
-              <div className="p-3 bg-purple-500 rounded-xl">
-                <span className="text-white text-2xl">🔄</span>
-              </div>
-            </div>
-            {/* Metric content */}
-            <div className="space-y-2">
-              <p className="text-sm font-medium text-purple-600 uppercase tracking-wide">
-                Pipelines
-              </p>
-              <p className="text-4xl font-light text-gray-900">89</p>
-              <p className="text-sm text-gray-600">+15% from last month</p>
+      {/* Charts row */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Asset by Type - Pie */}
+        <div className="bg-white border border-gray-200 rounded-lg shadow-[0_1px_2px_rgba(0,0,0,0.05)] p-5">
+          <h3 className="text-sm font-semibold text-gray-900 mb-4">Assets by Type</h3>
+          <div className="flex items-center gap-6">
+            <ResponsiveContainer width={160} height={160}>
+              <PieChart>
+                <Pie
+                  data={assetTypeData}
+                  cx={75}
+                  cy={75}
+                  innerRadius={45}
+                  outerRadius={72}
+                  paddingAngle={2}
+                  dataKey="value"
+                >
+                  {assetTypeData.map((_, i) => (
+                    <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip
+                  contentStyle={{
+                    fontSize: 12,
+                    borderRadius: 6,
+                    border: '1px solid #e5e7eb',
+                  }}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+            <div className="flex-1 space-y-2">
+              {assetTypeData.map((item, i) => (
+                <div key={item.name} className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span
+                      className="w-2.5 h-2.5 rounded-full shrink-0"
+                      style={{ backgroundColor: CHART_COLORS[i % CHART_COLORS.length] }}
+                    />
+                    <span className="text-xs text-gray-600 capitalize">{item.name}</span>
+                  </div>
+                  <span className="text-xs font-medium text-gray-900 tabular-nums">
+                    {item.value.toLocaleString()}
+                  </span>
+                </div>
+              ))}
             </div>
           </div>
         </div>
 
-        {/* ML Models Metric Card */}
-        <div className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-red-50 to-red-100 p-8 shadow-sm hover:shadow-xl transition-all duration-300">
-          {/* Decorative background circle */}
-          <div className="absolute top-0 right-0 w-32 h-32 bg-red-200 rounded-full -mr-16 -mt-16 opacity-20 group-hover:opacity-30 transition-opacity"></div>
-          <div className="relative">
-            {/* Icon container with red background */}
-            <div className="flex items-center justify-between mb-4">
-              <div className="p-3 bg-red-500 rounded-xl">
-                <span className="text-white text-2xl">🤖</span>
-              </div>
-            </div>
-            {/* Metric content */}
-            <div className="space-y-2">
-              <p className="text-sm font-medium text-red-600 uppercase tracking-wide">
-                ML Models
-              </p>
-              <p className="text-4xl font-light text-gray-900">23</p>
-              <p className="text-sm text-gray-600">+5% from last month</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Analytics Charts Section */}
-      {/* Two-column grid on large screens, single column on smaller screens */}
-      <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
-        {/* Metadata Growth Chart */}
-        <div className="rounded-2xl bg-white p-8 shadow-sm border border-gray-100">
-          {/* Chart header with title and time period */}
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-xl font-medium text-gray-900">Metadata Growth</h3>
-            <span className="text-sm text-gray-500">Last 12 months</span>
-          </div>
-          {/* Placeholder for future chart implementation */}
-          <div className="h-64 bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl flex items-center justify-center">
-            <div className="text-center">
-              {/* Chart icon placeholder */}
-              <div className="w-16 h-16 bg-gray-200 rounded-full mx-auto mb-4 flex items-center justify-center">
-                <svg className="w-8 h-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                </svg>
-              </div>
-              <p className="text-gray-600">Interactive Chart</p>
-              <p className="text-sm text-gray-500">Powered by OpenMetadata analytics</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Governance Coverage Chart */}
-        <div className="rounded-2xl bg-white p-8 shadow-sm border border-gray-100">
-          {/* Chart header */}
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-xl font-medium text-gray-900">Governance Coverage</h3>
-            <span className="text-sm text-gray-500">Current status</span>
-          </div>
-          {/* Placeholder for governance coverage visualization */}
-          <div className="h-64 bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl flex items-center justify-center">
-            <div className="text-center">
-              {/* Success indicator icon */}
-              <div className="w-16 h-16 bg-green-200 rounded-full mx-auto mb-4 flex items-center justify-center">
-                <svg className="w-8 h-8 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-              <p className="text-gray-600">Coverage Metrics</p>
-              <p className="text-sm text-gray-500">Policy compliance tracking</p>
-            </div>
-          </div>
+        {/* Quality Distribution - Bar */}
+        <div className="bg-white border border-gray-200 rounded-lg shadow-[0_1px_2px_rgba(0,0,0,0.05)] p-5">
+          <h3 className="text-sm font-semibold text-gray-900 mb-4">Quality Distribution</h3>
+          <ResponsiveContainer width="100%" height={160}>
+            <BarChart data={qualityData} barSize={28}>
+              <XAxis
+                dataKey="name"
+                tick={{ fontSize: 10, fill: '#6b7280' }}
+                axisLine={false}
+                tickLine={false}
+              />
+              <YAxis hide />
+              <Tooltip
+                contentStyle={{
+                  fontSize: 12,
+                  borderRadius: 6,
+                  border: '1px solid #e5e7eb',
+                }}
+              />
+              <Bar dataKey="value" radius={[4, 4, 0, 0]}>
+                {qualityData.map((entry, i) => (
+                  <Cell key={i} fill={entry.fill} />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
         </div>
       </div>
 
-      {/* Recent Activity Feed */}
-      {/* Displays real-time platform events and user actions */}
-      <div className="rounded-2xl bg-white p-8 shadow-sm border border-gray-100">
-        {/* Section header with title and "View all" link */}
-        <div className="flex items-center justify-between mb-6">
-          <h3 className="text-xl font-medium text-gray-900">Recent Activity</h3>
-          <button className="text-sm text-blue-600 hover:text-blue-800 font-medium">
-            View all
-          </button>
+      {/* Recent Activity + Quick Actions */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {/* Recent Workflows */}
+        <div className="lg:col-span-2 bg-white border border-gray-200 rounded-lg shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+            <h3 className="text-sm font-semibold text-gray-900">Recent Workflows</h3>
+            <Link href="/workflows" className="text-xs text-blue-600 hover:underline flex items-center gap-1">
+              View all <ArrowRight size={11} />
+            </Link>
+          </div>
+          <div className="divide-y divide-gray-50">
+            {recentWorkflows.length === 0 ? (
+              <div className="py-8 text-center text-sm text-gray-400">No recent workflows</div>
+            ) : (
+              recentWorkflows.map((wf) => (
+                <div key={wf.id} className="px-5 py-3 hover:bg-gray-50 transition-colors">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium text-gray-900 truncate">
+                        {wf.assetName || wf.assetUrn}
+                      </p>
+                      <p className="text-[11px] text-gray-500 capitalize mt-0.5">
+                        {wf.workflowType.replace('_', ' ')} · {wf.initiatedByName || wf.initiatedBy}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 ml-3">
+                      <Badge variant={getWorkflowStatusVariant(wf.status)}>
+                        {wf.status.replace('_', ' ')}
+                      </Badge>
+                      <span className="text-[11px] text-gray-400">
+                        {formatDistanceToNow(new Date(wf.createdAt), { addSuffix: true })}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
+          {/* Recent Alerts section */}
+          {recentAlerts.length > 0 && (
+            <>
+              <div className="flex items-center justify-between px-5 py-4 border-t border-gray-100 border-b border-gray-100">
+                <h3 className="text-sm font-semibold text-gray-900">Open Alerts</h3>
+                <Link href="/alerts" className="text-xs text-blue-600 hover:underline flex items-center gap-1">
+                  View all <ArrowRight size={11} />
+                </Link>
+              </div>
+              <div className="divide-y divide-gray-50">
+                {recentAlerts.map((alert) => (
+                  <div key={alert.id} className="px-5 py-3 hover:bg-gray-50 transition-colors flex items-center gap-3">
+                    <div
+                      className={`w-2 h-2 rounded-full shrink-0 ${
+                        alert.severity === 'critical'
+                          ? 'bg-red-500'
+                          : alert.severity === 'high'
+                          ? 'bg-orange-500'
+                          : alert.severity === 'medium'
+                          ? 'bg-yellow-500'
+                          : 'bg-blue-500'
+                      }`}
+                    />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium text-gray-900 truncate">{alert.title}</p>
+                      <p className="text-[11px] text-gray-500 truncate">{alert.message}</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge variant={getAlertSeverityVariant(alert.severity)}>
+                        {alert.severity}
+                      </Badge>
+                      <span className="text-[11px] text-gray-400">
+                        {formatDistanceToNow(new Date(alert.createdAt), { addSuffix: true })}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
         </div>
 
-        {/* Activity items list */}
-        <div className="space-y-6">
-          {/* Dataset Update Activity Item */}
-          <div className="flex items-start space-x-4 p-4 rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors">
-            {/* User avatar */}
-            <div className="flex-shrink-0">
-              <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center">
-                <span className="text-white font-medium text-sm">JD</span>
-              </div>
-            </div>
-            {/* Activity content */}
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-gray-900">
-                John Doe updated dataset description
-              </p>
-              <p className="text-sm text-gray-600">
-                "Customer Data" - Added PII classification
-              </p>
-              <p className="text-xs text-gray-500 mt-1">2 hours ago</p>
-            </div>
-            {/* Activity type badge */}
-            <div className="flex-shrink-0">
-              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                Metadata
-              </span>
-            </div>
-          </div>
-
-          {/* Policy Violation Activity Item */}
-          <div className="flex items-start space-x-4 p-4 rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors">
-            {/* System avatar */}
-            <div className="flex-shrink-0">
-              <div className="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center">
-                <span className="text-white font-medium text-sm">AS</span>
-              </div>
-            </div>
-            {/* Activity content */}
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-gray-900">
-                Policy violation detected
-              </p>
-              <p className="text-sm text-gray-600">
-                "Sales Dashboard" - Unauthorized access attempt
-              </p>
-              <p className="text-xs text-gray-500 mt-1">4 hours ago</p>
-            </div>
-            {/* Activity type badge */}
-            <div className="flex-shrink-0">
-              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                Alert
-              </span>
+        {/* Quick Actions */}
+        <div className="space-y-4">
+          <div className="bg-white border border-gray-200 rounded-lg shadow-[0_1px_2px_rgba(0,0,0,0.05)] p-5">
+            <h3 className="text-sm font-semibold text-gray-900 mb-4">Quick Actions</h3>
+            <div className="space-y-2">
+              <Link href="/integrations">
+                <button className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left hover:bg-gray-50 transition-colors border border-gray-100">
+                  <div className="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center shrink-0">
+                    <Play size={13} className="text-blue-600" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-gray-900">Run Ingestion</p>
+                    <p className="text-[11px] text-gray-500">Sync from connected sources</p>
+                  </div>
+                </button>
+              </Link>
+              <Link href="/policies">
+                <button className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left hover:bg-gray-50 transition-colors border border-gray-100 mt-2">
+                  <div className="w-8 h-8 bg-purple-50 rounded-lg flex items-center justify-center shrink-0">
+                    <Plus size={13} className="text-purple-600" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-gray-900">Create Policy</p>
+                    <p className="text-[11px] text-gray-500">Define governance rules</p>
+                  </div>
+                </button>
+              </Link>
+              <Link href="/workflows">
+                <button className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left hover:bg-gray-50 transition-colors border border-gray-100 mt-2">
+                  <div className="w-8 h-8 bg-green-50 rounded-lg flex items-center justify-center shrink-0">
+                    <Key size={13} className="text-green-600" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-gray-900">Request Access</p>
+                    <p className="text-[11px] text-gray-500">Start an access workflow</p>
+                  </div>
+                </button>
+              </Link>
             </div>
           </div>
 
-          {/* Ingestion Success Activity Item */}
-          <div className="flex items-start space-x-4 p-4 rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors">
-            {/* OpenMetadata avatar */}
-            <div className="flex-shrink-0">
-              <div className="w-10 h-10 bg-purple-500 rounded-full flex items-center justify-center">
-                <span className="text-white font-medium text-sm">OM</span>
-              </div>
-            </div>
-            {/* Activity content */}
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-gray-900">
-                OpenMetadata ingestion completed
-              </p>
-              <p className="text-sm text-gray-600">
-                Successfully ingested 45 new tables from PostgreSQL
-              </p>
-              <p className="text-xs text-gray-500 mt-1">6 hours ago</p>
-            </div>
-            {/* Activity type badge */}
-            <div className="flex-shrink-0">
-              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                Success
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* AI Assistant Call-to-Action Section */}
-      {/* Prominent section highlighting AI capabilities */}
-      <div className="rounded-2xl bg-gradient-to-r from-blue-600 to-purple-600 p-8 text-white">
-        <div className="flex items-center justify-between">
-          {/* Content section */}
-          <div>
-            <h3 className="text-2xl font-light mb-2">AI-Powered Governance</h3>
-            <p className="text-blue-100 mb-4">
-              Ask questions about your data governance, get insights, and receive recommendations powered by AI.
-            </p>
-            {/* Call-to-action button */}
-            <button className="bg-white text-blue-600 px-6 py-3 rounded-xl font-medium hover:bg-gray-50 transition-colors">
-              Try AI Assistant
-            </button>
-          </div>
-          {/* Decorative robot icon - hidden on mobile */}
-          <div className="hidden lg:block">
-            <div className="w-24 h-24 bg-white/20 rounded-2xl flex items-center justify-center">
-              <span className="text-4xl">🤖</span>
+          {/* Platform status */}
+          <div className="bg-white border border-gray-200 rounded-lg shadow-[0_1px_2px_rgba(0,0,0,0.05)] p-5">
+            <h3 className="text-sm font-semibold text-gray-900 mb-3">Platform Status</h3>
+            <div className="space-y-2.5">
+              {[
+                { label: 'Catalog Service', ok: true },
+                { label: 'Auth Service', ok: true },
+                { label: 'AI Search', ok: true },
+                { label: 'Ingestion Workers', ok: true },
+              ].map(({ label, ok }) => (
+                <div key={label} className="flex items-center justify-between">
+                  <span className="text-xs text-gray-600">{label}</span>
+                  <div className="flex items-center gap-1.5">
+                    <span className={`w-1.5 h-1.5 rounded-full ${ok ? 'bg-green-500' : 'bg-red-500'}`} />
+                    <span className={`text-[11px] font-medium ${ok ? 'text-green-600' : 'text-red-600'}`}>
+                      {ok ? 'Operational' : 'Degraded'}
+                    </span>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         </div>

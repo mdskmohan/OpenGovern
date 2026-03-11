@@ -1,0 +1,41 @@
+# OpenGovern Ingestion Recipe — Snowflake (via DataHub connector)
+#
+# Uses acryl-datahub's production Snowflake connector.
+# Extracts tables, views, schemas, query-history lineage, and column-level lineage.
+#
+# Prerequisites:
+#   pip install "acryl-datahub[snowflake]"
+#
+# Run with:
+#   opengovern ingest --recipe snowflake-recipe.yaml
+
+source:
+  type: datahub_snowflake
+  config:
+    account_id: ${SNOWFLAKE_ACCOUNT}
+    warehouse: ${SNOWFLAKE_WAREHOUSE:-COMPUTE_WH}
+    username: ${SNOWFLAKE_USER}
+    password: ${SNOWFLAKE_PASSWORD}
+    role: ${SNOWFLAKE_ROLE:-ACCOUNTADMIN}
+    database_pattern:
+      allow:
+        - "PROD"
+        - "ANALYTICS"
+    schema_pattern:
+      deny:
+        - "INFORMATION_SCHEMA"
+    # Lineage from Snowflake's ACCESS_HISTORY (requires extra permissions)
+    include_table_lineage: true
+    include_column_lineage: true
+    # Usage statistics (requires ACCOUNTADMIN or GOVERNANCE_VIEWER)
+    include_usage_stats: false
+
+sink:
+  type: opengovern_api
+  config:
+    api_url: ${OPENGOVERN_API_URL:-http://localhost:3001}
+    api_token: ${OPENGOVERN_API_TOKEN}
+
+options:
+  default_domain: ""
+  extract_lineage: true

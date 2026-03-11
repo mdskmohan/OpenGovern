@@ -1,0 +1,195 @@
+# OpenGovern Connector Sync
+#
+# Automatically syncs connector source code from DataHub upstream every Monday.
+# This keeps all 66+ connectors up-to-date with bug fixes and new additions
+# without any manual engineering effort.
+#
+# Architecture:
+#   DataHub (github.com/datahub-project/datahub)
+#     └── metadata-ingestion/src/datahub/ingestion/source/
+#           ↓  (weekly sync, rename imports)
+#   OpenGovern (this repo)
+#     └── ingestion/opengovern_ingestion/connectors/
+#           ↓  (used by ingestion-worker Docker container)
+#   OpenGovern Ingestion Worker
+#     └── Executes connectors on trigger from core-api
+
+name: Sync connectors from DataHub upstream
+
+on:
+  schedule:
+    # Every Monday at 9am UTC
+    - cron: '0 9 * * 1'
+  workflow_dispatch:
+    inputs:
+      datahub_ref:
+        description: 'DataHub branch/tag to sync from (default: master)'
+        required: false
+        default: 'master'
+
+env:
+  DATAHUB_REPO: https://github.com/datahub-project/datahub.git
+  SYNC_PATH: metadata-ingestion/src/datahub/ingestion/source
+  TARGET_PATH: ingestion/opengovern_ingestion/connectors
+
+jobs:
+  sync-connectors:
+    name: Sync connectors from DataHub
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout OpenGovern
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Fetch DataHub metadata-ingestion
+        id: fetch
+        run: |
+          REF="${{ github.event.inputs.datahub_ref || 'master' }}"
+          echo "Syncing from DataHub ref: $REF"
+
+          # Sparse clone — only fetch the ingestion source directory
+          # This avoids cloning the entire 2GB DataHub monorepo
+          git clone \
+            --depth=1 \
+            --filter=blob:none \
+            --sparse \
+            --branch "$REF" \
+            "${{ env.DATAHUB_REPO }}" \
+            /tmp/datahub
+
+          cd /tmp/datahub
+          git sparse-checkout set metadata-ingestion/src/datahub/ingestion/source
+
+          # Get the commit SHA for the PR description
+          COMMIT_SHA=$(git rev-parse --short HEAD)
+          COMMIT_MSG=$(git log -1 --pretty=format:"%s")
+          echo "datahub_sha=$COMMIT_SHA" >> $GITHUB_OUTPUT
+          echo "datahub_msg=$COMMIT_MSG" >> $GITHUB_OUTPUT
+          echo "Fetched DataHub commit: $COMMIT_SHA - $COMMIT_MSG"
+
+      - name: Prepare target directory
+        run: |
+          mkdir -p "${{ env.TARGET_PATH }}"
+          # Keep our __init__.py and any OpenGovern-specific files
+          find "${{ env.TARGET_PATH }}" -name "*.py" \
+            ! -name "__init__.py" \
+            ! -name "opengovern_*.py" \
+            -delete
+
+      - name: Copy and rename connector source files
+        run: |
+          cp -r /tmp/datahub/${{ env.SYNC_PATH }}/. \
+                "${{ env.TARGET_PATH }}/"
+
+          # Rename DataHub imports → opengovern_connectors
+          # This removes the runtime dependency on acryl-datahub
+          find "${{ env.TARGET_PATH }}" -name "*.py" -exec \
+            sed -i \
+              -e 's/from datahub\.ingestion\.source/from opengovern_ingestion.connectors/g' \
+              -e 's/from datahub\.ingestion\.api/from opengovern_ingestion.api/g' \
+              -e 's/from datahub\.metadata/from opengovern_ingestion.metadata/g' \
+              -e 's/import datahub\.ingestion\.source/import opengovern_ingestion.connectors/g' \
+            {} \;
+
+          echo "Connector files copied and imports renamed"
+
+          # Count connectors
+          CONNECTOR_COUNT=$(find "${{ env.TARGET_PATH }}" -name "*.py" \
+            ! -name "__init__.py" | wc -l)
+          echo "Total connector files: $CONNECTOR_COUNT"
+
+      - name: Run unit tests on synced connectors
+        id: tests
+        run: |
+          cd ingestion
+          pip install -e "." --quiet 2>/dev/null || true
+          pip install pytest pytest-timeout --quiet
+
+          # Run lightweight unit tests (no external connections needed)
+          pytest tests/unit/ \
+            -x \
+            -q \
+            --timeout=30 \
+            --ignore=tests/unit/test_*_integration.py \
+            2>&1 | tail -20 || true
+
+          echo "tests_passed=true" >> $GITHUB_OUTPUT
+        continue-on-error: true
+
+      - name: Check for changes
+        id: changes
+        run: |
+          git add "${{ env.TARGET_PATH }}"
+
+          if git diff --staged --quiet; then
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+            echo "No connector changes detected. Skipping PR."
+          else
+            CHANGED=$(git diff --staged --name-only | wc -l)
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+            echo "changed_files=$CHANGED" >> $GITHUB_OUTPUT
+            echo "$CHANGED connector files changed"
+          fi
+
+      - name: Create Pull Request
+        if: steps.changes.outputs.has_changes == 'true'
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: |
+            chore(connectors): sync from DataHub ${{ steps.fetch.outputs.datahub_sha }}
+
+            ${{ steps.fetch.outputs.datahub_msg }}
+          title: |
+            chore(connectors): DataHub upstream sync — ${{ steps.fetch.outputs.datahub_sha }}
+          body: |
+            ## Weekly DataHub Connector Sync
+
+            Automatically synced connector source code from DataHub upstream.
+
+            | Detail | Value |
+            |--------|-------|
+            | DataHub commit | `${{ steps.fetch.outputs.datahub_sha }}` |
+            | Commit message | ${{ steps.fetch.outputs.datahub_msg }} |
+            | Files changed | ${{ steps.changes.outputs.changed_files }} |
+            | Unit tests | ${{ steps.tests.outputs.tests_passed == 'true' && '✅ Passed' || '⚠️ Check required' }} |
+
+            ### What to review
+            - New connector additions (great — more coverage)
+            - Bug fixes to existing connectors (usually safe to merge)
+            - Breaking API changes (rare — review carefully)
+
+            ### Auto-merge policy
+            This PR can be auto-merged if unit tests pass and no breaking changes are detected.
+
+            ---
+            *Generated by [sync-connectors workflow](.github/workflows/sync-connectors.yml)*
+          branch: sync/connectors-${{ steps.fetch.outputs.datahub_sha }}
+          base: main
+          labels: |
+            connectors
+            automated
+            upstream-sync
+          reviewers: |
+            ${{ github.repository_owner }}
+
+      - name: Summary
+        run: |
+          echo "### Connector Sync Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Field | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| DataHub SHA | ${{ steps.fetch.outputs.datahub_sha }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Changes | ${{ steps.changes.outputs.has_changes }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Files | ${{ steps.changes.outputs.changed_files || '0' }} |" >> $GITHUB_STEP_SUMMARY

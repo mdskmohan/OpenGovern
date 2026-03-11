@@ -1,0 +1,35 @@
+# OpenGovern Ingestion Recipe — dbt (via DataHub connector)
+#
+# Extracts dbt models, tests, column-level lineage from manifest.json.
+# Run after `dbt compile` or `dbt run` to get up-to-date manifest.
+#
+# Prerequisites:
+#   pip install "acryl-datahub[dbt-cloud]"
+#
+# Run with:
+#   opengovern ingest --recipe dbt-recipe.yaml
+
+source:
+  type: datahub_dbt
+  config:
+    # Path to dbt's generated manifest (after dbt compile or dbt run)
+    manifest_path: ${DBT_MANIFEST_PATH:-./target/manifest.json}
+    # Path to dbt's catalog (after dbt docs generate)
+    catalog_path: ${DBT_CATALOG_PATH:-./target/catalog.json}
+    # Path to run results (optional — for test results)
+    run_results_path: ${DBT_RUN_RESULTS_PATH:-./target/run_results.json}
+    # The underlying data platform dbt runs on
+    target_platform: ${DBT_TARGET_PLATFORM:-snowflake}
+    # Include column-level lineage (requires dbt 1.5+)
+    include_column_lineage: true
+    # Include dbt test results as quality checks
+    include_test_results: true
+
+sink:
+  type: opengovern_api
+  config:
+    api_url: ${OPENGOVERN_API_URL:-http://localhost:3001}
+    api_token: ${OPENGOVERN_API_TOKEN}
+
+options:
+  extract_lineage: true

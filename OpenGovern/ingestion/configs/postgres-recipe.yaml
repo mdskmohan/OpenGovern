@@ -1,0 +1,37 @@
+# OpenGovern Ingestion Recipe — PostgreSQL (Native Connector)
+#
+# Uses OpenGovern's native PostgreSQL source.
+# Reads table/view/column metadata from information_schema.
+# Extracts foreign key relationships as lineage edges.
+#
+# Run with:
+#   opengovern ingest --recipe postgres-recipe.yaml
+#   opengovern validate --recipe postgres-recipe.yaml    # test connection first
+
+source:
+  type: opengovern_postgres
+  config:
+    host: ${POSTGRES_HOST:-localhost}
+    port: ${POSTGRES_PORT:-5432}
+    database: ${POSTGRES_DB:-mydb}
+    username: ${POSTGRES_USER:-postgres}
+    password: ${POSTGRES_PASSWORD}
+    schemas:
+      - public
+      - analytics
+    include_views: true
+    service_name: "Production PostgreSQL"
+
+sink:
+  type: opengovern_api
+  config:
+    api_url: ${OPENGOVERN_API_URL:-http://localhost:3001}
+    api_token: ${OPENGOVERN_API_TOKEN}
+
+options:
+  # Optional: assign all ingested assets to a domain
+  default_domain: ""
+  # Optional: add tags to all ingested assets
+  default_tags: []
+  # Run lineage extraction
+  extract_lineage: true
