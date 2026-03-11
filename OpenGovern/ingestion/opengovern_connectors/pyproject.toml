@@ -1,0 +1,65 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name = "opengovern-connectors"
+version = "1.0.0"
+description = "OpenGovern data source connectors — forked from DataHub metadata-ingestion"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "Apache-2.0" }
+
+# Core runtime dependencies (connector-specific extras defined below)
+dependencies = [
+    "pydantic>=1.10,<3",
+    "pydantic-settings>=2.0",
+    "typing-extensions>=4.0",
+    "click>=7.1",
+    "PyYAML>=5.4",
+    "requests>=2.28",
+    "httpx>=0.25",
+    "sqlglot>=20.0",
+    "avro>=1.11",
+    "fastavro>=1.7",
+    "expandvars>=0.9",
+    "more-itertools>=8.12",
+    "progressbar2>=3.55",
+    "tabulate>=0.8.9",
+    "toml>=0.10",
+]
+
+[project.optional-dependencies]
+# Install only what you need — all pre-installed in the Docker image
+snowflake    = ["snowflake-connector-python[pandas]>=3.0", "snowflake-sqlalchemy>=1.5"]
+bigquery     = ["google-cloud-bigquery>=3.0", "google-cloud-datacatalog>=3.14", "db-dtypes"]
+redshift     = ["psycopg2-binary>=2.9", "sqlalchemy>=1.4"]
+postgres     = ["psycopg2-binary>=2.9", "sqlalchemy>=1.4"]
+mysql        = ["pymysql>=1.0", "sqlalchemy>=1.4"]
+mssql        = ["pyodbc>=4.0"]
+clickhouse   = ["clickhouse-driver>=0.2", "clickhouse-sqlalchemy>=0.2"]
+trino        = ["trino[sqlalchemy]>=0.320"]
+athena       = ["PyAthena[Pandas]>=2.25"]
+databricks   = ["databricks-sdk>=0.12", "sqlalchemy>=1.4"]
+dbt          = ["dbt-core>=1.5", "dbt-artifacts-parser>=0.5"]
+airflow      = ["apache-airflow-client>=2.6"]
+kafka        = ["confluent-kafka>=2.0", "fastavro>=1.7"]
+s3           = ["boto3>=1.28", "smart-open[s3]>=6.0"]
+looker       = ["looker-sdk>=23.0"]
+tableau      = ["tableauserverclient>=0.25"]
+powerbi      = ["azure-identity>=1.14", "azure-mgmt-powerbiembedded>=1.0"]
+mlflow       = ["mlflow>=2.5"]
+# Install everything (used in Docker image)
+all = [
+    "opengovern-connectors[snowflake,bigquery,redshift,postgres,mysql,clickhouse,trino,athena,databricks,dbt,airflow,kafka,s3,looker,tableau,mlflow]"
+]
+dev = ["pytest>=7.0", "pytest-asyncio", "mypy>=1.0", "ruff>=0.1"]
+
+[project.scripts]
+opengovern-ingest = "opengovern_connectors.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+opengovern_connectors = ["py.typed"]

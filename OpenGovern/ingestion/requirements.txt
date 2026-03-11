@@ -1,16 +1,23 @@
-# Core framework
-pydantic>=2.0
-pydantic-settings>=2.0
-httpx>=0.25
-sqlglot>=20.0
-click>=8.1
-rich>=13.0
-PyYAML>=6.0
-python-dotenv>=1.0
-psycopg2-binary>=2.9
+# OpenGovern Ingestion Worker dependencies
+#
+# opengovern-connectors is our fork of acryl-datahub's metadata-ingestion.
+# It is vendored directly in this repo under ./opengovern_connectors/
+# Zero runtime dependency on acryl-datahub or DataHub servers.
+#
+# To sync latest connector code from DataHub upstream:
+#   ./scripts/sync-from-datahub.sh
+
+# ── OpenGovern connector package (local vendored fork) ───────────────────────
+-e ./opengovern_connectors[all]
+
+# ── Worker runtime ────────────────────────────────────────────────────────────
 fastapi>=0.109.0
 uvicorn[standard]>=0.27.0
-
-# DataHub ingestion — ALL 50+ connectors pre-installed
-# Users never need to run pip install manually
-acryl-datahub[snowflake,bigquery,redshift,postgres,mysql,mssql,oracle,trino,athena,mariadb,teradata,vertica,mongodb,cassandra,clickhouse,db2,elasticsearch,databricks,hive,presto,dbt-cloud,airflow,dagster,prefect,looker,tableau,powerbi,metabase,superset,kafka,pulsar,s3,gcs,spark,flink,glue,mlflow,sagemaker,feast,great-expectations,delta-lake]>=0.12.0
+psycopg2-binary>=2.9
+httpx>=0.25
+pydantic>=2.0
+pydantic-settings>=2.0
+PyYAML>=6.0
+python-dotenv>=1.0
+click>=8.1
+rich>=13.0
