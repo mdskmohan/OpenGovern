@@ -11,7 +11,6 @@ import {
   Tag,
   CheckCircle2,
   Bell,
-  Plug,
   BarChart3,
   Users,
   Settings,
@@ -46,7 +45,6 @@ const navigation = [
   {
     group: 'CONNECT',
     items: [
-      { name: 'Integrations', href: '/integrations', icon: Plug },
       { name: 'Metrics', href: '/metrics', icon: BarChart3 },
     ],
   },
