@@ -22,7 +22,12 @@ export default function LoginPage() {
   const router = useRouter();
 
   useEffect(() => {
-    if (isAuthenticated) router.push('/');
+    if (isAuthenticated) {
+      // Redirect to where the user was trying to go, or home
+      const dest = sessionStorage.getItem('og_redirect_after_login') || '/';
+      sessionStorage.removeItem('og_redirect_after_login');
+      router.replace(dest);
+    }
   }, [isAuthenticated, router]);
 
   // Direct demo bypass — writes to localStorage and updates the store,

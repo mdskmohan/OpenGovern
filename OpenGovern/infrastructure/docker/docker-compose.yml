@@ -175,7 +175,7 @@ services:
       PORT: 3010
       JWT_PRIVATE_KEY_PATH: /run/secrets/private.pem
       JWT_PUBLIC_KEY_PATH: /run/secrets/public.pem
-      JWT_ACCESS_TOKEN_EXPIRES_IN: 8h
+      JWT_ACCESS_TOKEN_EXPIRES_IN: 24h
       JWT_REFRESH_TOKEN_EXPIRES_IN: 7d
       BCRYPT_ROUNDS: "12"
     ports:

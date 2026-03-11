@@ -6,7 +6,7 @@
  * On 401: redirect to login page.
  */
 
-import axios, { AxiosInstance } from 'axios';
+import axios, { AxiosInstance, InternalAxiosRequestConfig } from 'axios';
 import type {
   AssetListParams,
   PolicyListParams,
@@ -14,10 +14,47 @@ import type {
   RegisterData,
 } from '@/types';
 
-function createClient(baseURL: string): AxiosInstance {
-  const client = axios.create({ baseURL, timeout: 10000 });
+const AUTH_URL = process.env.NEXT_PUBLIC_AUTH_URL || 'http://localhost:3010';
 
-  // Attach auth token
+// Bare axios instance used only for token refresh — no interceptors to avoid loops
+const refreshClient = axios.create({ baseURL: AUTH_URL, timeout: 10000 });
+
+let refreshPromise: Promise<string> | null = null;
+
+async function getFreshToken(): Promise<string> {
+  // Deduplicate concurrent refresh calls — only one in-flight at a time
+  if (refreshPromise) return refreshPromise;
+
+  refreshPromise = (async () => {
+    const refreshToken = localStorage.getItem('og_refresh_token');
+    if (!refreshToken) throw new Error('No refresh token');
+
+    const res = await refreshClient.post('/api/v1/auth/refresh', { refreshToken });
+    const newToken: string = res.data?.tokens?.accessToken || res.data?.accessToken;
+    if (!newToken) throw new Error('Refresh response missing token');
+
+    localStorage.setItem('og_access_token', newToken);
+    if (res.data?.tokens?.refreshToken) {
+      localStorage.setItem('og_refresh_token', res.data.tokens.refreshToken);
+    }
+    return newToken;
+  })().finally(() => { refreshPromise = null; });
+
+  return refreshPromise;
+}
+
+function redirectToLogin() {
+  if (typeof window === 'undefined') return;
+  localStorage.removeItem('og_access_token');
+  localStorage.removeItem('og_refresh_token');
+  sessionStorage.setItem('og_redirect_after_login', window.location.pathname);
+  window.location.href = '/login';
+}
+
+function createClient(baseURL: string): AxiosInstance {
+  const client = axios.create({ baseURL, timeout: 15000 });
+
+  // Attach current access token to every request
   client.interceptors.request.use((config) => {
     if (typeof window !== 'undefined') {
       const token = localStorage.getItem('og_access_token');
@@ -26,11 +63,25 @@ function createClient(baseURL: string): AxiosInstance {
     return config;
   });
 
-  // Handle 401 — silently reject so pages show empty states instead of redirecting.
-  // Auth enforcement is handled by the AppShell, not here.
+  // On 401: automatically refresh token and retry once.
+  // If refresh fails: redirect to login. User never sees "token" errors.
   client.interceptors.response.use(
     (response) => response,
-    (error) => {
+    async (error) => {
+      const original = error.config as InternalAxiosRequestConfig & { _retried?: boolean };
+
+      if (error.response?.status === 401 && !original._retried) {
+        original._retried = true;
+        try {
+          const newToken = await getFreshToken();
+          original.headers.Authorization = `Bearer ${newToken}`;
+          return client(original);
+        } catch {
+          redirectToLogin();
+          return new Promise(() => {}); // Hang — redirect is in progress
+        }
+      }
+
       return Promise.reject(error);
     }
   );

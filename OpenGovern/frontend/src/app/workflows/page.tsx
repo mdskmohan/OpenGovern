@@ -944,7 +944,7 @@ function CreateWorkflowWizard({ onClose }: { onClose: () => void }) {
       setState((s) => ({
         ...s,
         connectionTestStatus: 'failed',
-        connectionTestError: err.response?.data?.error ?? err.message,
+        connectionTestError: err.response?.data?.error?.message ?? err.response?.data?.message ?? err.message ?? 'Connection failed',
       }));
     },
   });
