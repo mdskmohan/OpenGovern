@@ -9,6 +9,7 @@ import { Router } from 'express';
 import {
   getConfig,
   ingestProposal,
+  ingestProposalBatch,
   ingestEntities,
   proxyHealth,
 } from '../controllers/datahub-proxy.controller';
@@ -18,13 +19,11 @@ const router = Router();
 // DataHub REST emitter capability handshake
 router.get('/config', getConfig);
 
-// Primary MCP write path (v2)
-// DataHub emitter sends POST /aspects?action=ingestProposal
+// Primary MCP write path — handles both single and batch (DataHub 1.4.x uses batch)
 router.post('/aspects', async (req, res) => {
   const action = req.query.action as string;
-  if (action === 'ingestProposal') {
-    return ingestProposal(req, res);
-  }
+  if (action === 'ingestProposal')      return ingestProposal(req, res);
+  if (action === 'ingestProposalBatch') return ingestProposalBatch(req, res);
   res.status(400).json({ error: `Unknown action: ${action}` });
 });
 

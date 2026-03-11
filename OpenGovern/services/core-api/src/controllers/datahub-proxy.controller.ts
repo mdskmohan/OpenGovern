@@ -79,19 +79,6 @@ function parseDataHubUrn(urn: string): ParsedUrn | null {
   }
 }
 
-function entityTypeFromDataHub(dhType: string): string {
-  const map: Record<string, string> = {
-    dataset:   'table',
-    dashboard: 'dashboard',
-    chart:     'dashboard',
-    dataJob:   'pipeline',
-    dataFlow:  'pipeline',
-    mlModel:   'ml_model',
-    mlFeatureTable: 'table',
-    notebook:  'report',
-  };
-  return map[dhType] || 'table';
-}
 
 // ─── Aspect parsers ───────────────────────────────────────────────────────────
 
@@ -372,6 +359,52 @@ export async function ingestEntities(req: Request, res: Response): Promise<void>
     res.json({ urn, status: 'UPSERTED', assetId });
   } catch (err) {
     console.error('[DataHub proxy] ingestEntities error:', err);
+    res.status(500).json({ error: 'Internal proxy error', detail: String(err) });
+  }
+}
+
+/**
+ * POST /aspects?action=ingestProposalBatch
+ * DataHub 1.4.x batch write path — array of MCPs in one request.
+ * We process each proposal sequentially and return a batch result.
+ */
+export async function ingestProposalBatch(req: Request, res: Response): Promise<void> {
+  try {
+    const body = req.body as {
+      proposals?: Array<{
+        entityType?: string;
+        entityUrn?: string;
+        aspectName?: string;
+        changeType?: string;
+        aspect?: { value?: string; contentType?: string };
+      }>;
+    };
+
+    const proposals = body.proposals ?? [];
+    const results: Array<{ urn: string; status: string }> = [];
+
+    for (const proposal of proposals) {
+      try {
+        const urn = proposal.entityUrn;
+        const aspectName = proposal.aspectName;
+        if (!urn || !aspectName) { results.push({ urn: urn ?? '', status: 'SKIPPED' }); continue; }
+
+        const parsed = parseDataHubUrn(urn);
+        if (!parsed) { results.push({ urn, status: 'SKIPPED' }); continue; }
+
+        const assetId = await upsertAsset(urn, parsed);
+        const aspectData = proposal.aspect?.value ? safeJson(proposal.aspect.value) : {};
+        await applyAspect(assetId, urn, aspectName, aspectData);
+        results.push({ urn, status: 'UPSERTED' });
+      } catch (err) {
+        console.error('[DataHub proxy] batch item error:', err);
+        results.push({ urn: proposal.entityUrn ?? '', status: 'ERROR' });
+      }
+    }
+
+    res.json({ results });
+  } catch (err) {
+    console.error('[DataHub proxy] ingestProposalBatch error:', err);
     res.status(500).json({ error: 'Internal proxy error', detail: String(err) });
   }
 }
