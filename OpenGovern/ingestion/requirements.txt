@@ -1,16 +1,7 @@
-# OpenGovern Ingestion Worker dependencies
-#
-# opengovern-connectors is our fork of acryl-datahub's metadata-ingestion.
-# It is vendored directly in this repo under ./opengovern_connectors/
-# Zero runtime dependency on acryl-datahub or DataHub servers.
-#
-# To sync latest connector code from DataHub upstream:
-#   ./scripts/sync-from-datahub.sh
+# OpenGovern Ingestion Worker
+# Uses acryl-datahub connectors directly.
+# Fork to opengovern-connectors is a separate milestone tracked in .github/workflows/sync-connectors.yml
 
-# ── OpenGovern connector package (local vendored fork) ───────────────────────
--e ./opengovern_connectors[all]
-
-# ── Worker runtime ────────────────────────────────────────────────────────────
 fastapi>=0.109.0
 uvicorn[standard]>=0.27.0
 psycopg2-binary>=2.9
@@ -21,3 +12,6 @@ PyYAML>=6.0
 python-dotenv>=1.0
 click>=8.1
 rich>=13.0
+
+# DataHub connectors — all major platforms pre-installed, no manual pip install needed
+acryl-datahub[snowflake,bigquery,redshift,postgres,mysql,dbt-cloud,airflow,looker,tableau,kafka,s3,databricks,hive,clickhouse,powerbi,metabase]>=0.12.0
