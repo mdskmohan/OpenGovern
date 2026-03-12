@@ -411,7 +411,7 @@ export default function WorkflowDetailPage() {
                 />
                 <ConfigRow
                   label="Created"
-                  value={format(new Date(workflow.created_at), 'MMM d, yyyy')}
+                  value={workflow.created_at ? format(new Date(workflow.created_at), 'MMM d, yyyy') : '—'}
                 />
               </div>
             </div>
@@ -495,7 +495,7 @@ export default function WorkflowDetailPage() {
                       </span>
                     </td>
                     <td className="px-4 py-3 text-gray-500 text-xs">
-                      {formatDistanceToNow(new Date(run.started_at), { addSuffix: true })}
+                      {run.started_at ? formatDistanceToNow(new Date(run.started_at), { addSuffix: true }) : '—'}
                     </td>
                     <td className="px-4 py-3 text-gray-500 text-xs">{formatDuration(run.duration_seconds)}</td>
                     <td className="px-4 py-3 text-gray-700 text-xs">{num(run.assets_discovered)}</td>

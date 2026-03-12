@@ -7,7 +7,7 @@ export function usePolicies(params?: PolicyListParams) {
     queryKey: ['policies', params],
     queryFn: async () => {
       const res = await api.policies.list(params);
-      return res.data;
+      return res.data?.data ?? res.data;
     },
   });
 }
@@ -17,7 +17,7 @@ export function usePolicy(id: string | null) {
     queryKey: ['policy', id],
     queryFn: async () => {
       const res = await api.policies.get(id!);
-      return res.data;
+      return res.data?.data ?? res.data;
     },
     enabled: !!id,
   });

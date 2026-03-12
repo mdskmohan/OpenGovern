@@ -67,7 +67,7 @@ export async function list(
   const offset = (page - 1) * limit;
 
   const countResult = await query<{ count: string }>(
-    `SELECT COUNT(*) as count FROM data_assets a ${whereClause}`,
+    `SELECT COUNT(*) as count FROM data_assets a LEFT JOIN domains d ON d.id = a.domain_id ${whereClause}`,
     params
   );
   const total = parseInt(countResult.rows[0]?.count || '0', 10);
@@ -75,9 +75,10 @@ export async function list(
   const dataResult = await query<AssetSummary>(
     `SELECT
        a.id, a.urn, a.entity_type, a.name, a.fully_qualified_name,
-       a.platform, a.domain_name, a.owner_name, a.certification_status,
+       a.platform, d.name AS domain_name, a.owner_name, a.certification_status,
        a.sensitivity, a.quality_score, a.tags, a.last_ingested_at, a.updated_at
      FROM data_assets a
+     LEFT JOIN domains d ON d.id = a.domain_id
      ${whereClause}
      ORDER BY a.updated_at DESC
      LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`,
@@ -89,15 +90,16 @@ export async function list(
 
 export async function create(data: Partial<DataAsset> & { urn: string; name: string; entity_type: string; platform: string; fully_qualified_name: string }): Promise<DataAsset> {
   const id = uuidv4();
+  // Note: data_assets does not have description, custom_properties, source_id, created_by, updated_by columns.
+  // Those fields live in asset_aspects or are not tracked at the row level.
   const result = await query<DataAsset>(
     `INSERT INTO data_assets (
        id, urn, entity_type, name, fully_qualified_name, platform,
-       service_name, database_name, schema_name, description,
-       domain_id, sensitivity, tags, custom_properties, source_id,
-       created_by, updated_by
+       service_name, database_name, schema_name,
+       domain_id, sensitivity, tags
      ) VALUES (
-       $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
-       $11, $12, $13, $14, $15, $16, $16
+       $1, $2, $3, $4, $5, $6, $7, $8, $9,
+       $10, $11, $12
      )
      RETURNING *`,
     [
@@ -110,13 +112,9 @@ export async function create(data: Partial<DataAsset> & { urn: string; name: str
       data.service_name || null,
       data.database_name || null,
       data.schema_name || null,
-      data.description || null,
       data.domain_id || null,
       data.sensitivity || 'internal',
       data.tags || [],
-      JSON.stringify(data.custom_properties || {}),
-      data.source_id || null,
-      data.created_by || null,
     ]
   );
   return result.rows[0];
@@ -127,10 +125,12 @@ export async function update(id: string, data: Partial<DataAsset>): Promise<Data
   const params: unknown[] = [];
   let paramIndex = 1;
 
+  // Only include columns that actually exist in the data_assets table.
+  // domain_name, description, custom_properties, source_id, created_by, updated_by do not exist as columns.
   const updatableFields: (keyof DataAsset)[] = [
-    'name', 'fully_qualified_name', 'description', 'domain_id', 'domain_name',
+    'name', 'fully_qualified_name', 'domain_id',
     'owner_id', 'owner_name', 'certification_status', 'sensitivity',
-    'quality_score', 'tags', 'custom_properties', 'last_ingested_at', 'updated_by',
+    'quality_score', 'tags', 'last_ingested_at',
   ];
 
   for (const field of updatableFields) {
@@ -183,27 +183,21 @@ export async function upsertByUrn(
         `UPDATE data_assets SET
            name = COALESCE($2, name),
            fully_qualified_name = COALESCE($3, fully_qualified_name),
-           description = COALESCE($4, description),
-           domain_id = COALESCE($5, domain_id),
-           sensitivity = COALESCE($6, sensitivity),
-           tags = COALESCE($7, tags),
-           custom_properties = COALESCE($8, custom_properties),
+           domain_id = COALESCE($4, domain_id),
+           sensitivity = COALESCE($5, sensitivity),
+           tags = COALESCE($6, tags),
            last_ingested_at = NOW(),
            is_active = true,
-           updated_at = NOW(),
-           updated_by = $9
+           updated_at = NOW()
          WHERE id = $1
          RETURNING *`,
         [
           asset.id,
           data.name,
           data.fully_qualified_name,
-          data.description || null,
           data.domain_id || null,
           data.sensitivity || null,
           data.tags || null,
-          data.custom_properties ? JSON.stringify(data.custom_properties) : null,
-          data.updated_by || null,
         ]
       );
       return result.rows[0];
@@ -212,12 +206,12 @@ export async function upsertByUrn(
       const result = await client.query<DataAsset>(
         `INSERT INTO data_assets (
            id, urn, entity_type, name, fully_qualified_name, platform,
-           service_name, database_name, schema_name, description,
-           domain_id, sensitivity, tags, custom_properties, source_id,
-           last_ingested_at, created_by, updated_by
+           service_name, database_name, schema_name,
+           domain_id, sensitivity, tags,
+           last_ingested_at
          ) VALUES (
-           $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
-           $11, $12, $13, $14, $15, NOW(), $16, $16
+           $1, $2, $3, $4, $5, $6, $7, $8, $9,
+           $10, $11, $12, NOW()
          )
          RETURNING *`,
         [
@@ -230,13 +224,9 @@ export async function upsertByUrn(
           data.service_name || null,
           data.database_name || null,
           data.schema_name || null,
-          data.description || null,
           data.domain_id || null,
           data.sensitivity || 'internal',
           data.tags || [],
-          JSON.stringify(data.custom_properties || {}),
-          data.source_id || null,
-          data.created_by || null,
         ]
       );
       return result.rows[0];
@@ -261,7 +251,11 @@ export async function getStats(): Promise<AssetStats> {
       `SELECT platform, COUNT(*) as count FROM data_assets WHERE is_active = true GROUP BY platform ORDER BY count DESC`
     ),
     query<{ domain_name: string | null; count: string }>(
-      `SELECT domain_name, COUNT(*) as count FROM data_assets WHERE is_active = true GROUP BY domain_name ORDER BY count DESC`
+      `SELECT d.name AS domain_name, COUNT(*) as count
+       FROM data_assets a
+       LEFT JOIN domains d ON d.id = a.domain_id
+       WHERE a.is_active = true
+       GROUP BY d.name ORDER BY count DESC`
     ),
   ]);
 

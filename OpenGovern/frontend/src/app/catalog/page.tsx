@@ -582,13 +582,44 @@ export default function CatalogPage() {
   }, [page, q, entityType, platform, certification, sensitivity, domainId, sort]);
 
   // ── Data fetching ──
+  // The core-api returns snake_case; we normalize to the camelCase AssetSummary contract here.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  function toAssetSummary(raw: any): AssetSummary {
+    return {
+      urn: raw.urn,
+      name: raw.name,
+      fullyQualifiedName: raw.fully_qualified_name ?? raw.fullyQualifiedName ?? '',
+      entityType: raw.entity_type ?? raw.entityType,
+      platform: raw.platform,
+      domainId: raw.domain_id ?? raw.domainId,
+      domainName: raw.domain_name ?? raw.domainName,
+      certificationStatus: raw.certification_status ?? raw.certificationStatus ?? 'uncertified',
+      sensitivity: raw.sensitivity,
+      ownerName: raw.owner_name ?? raw.ownerName,
+      ownerEmail: raw.owner_email ?? raw.ownerEmail,
+      qualityScore: raw.quality_score != null ? Number(raw.quality_score) : raw.qualityScore,
+      lastUpdated: raw.updated_at ?? raw.lastUpdated ?? new Date().toISOString(),
+      createdAt: raw.created_at ?? raw.createdAt ?? new Date().toISOString(),
+    };
+  }
+
   const { data: assetsPage, isLoading: assetsLoading, error: assetsError } = useQuery<
     PaginatedResponse<AssetSummary>
   >({
     queryKey: ['catalog-assets', assetParams],
     queryFn: async () => {
       const res = await api.assets.list(assetParams as Parameters<typeof api.assets.list>[0]);
-      return res.data;
+      // Response envelope: { success: true, data: { items: [...], total, page, limit, totalPages } }
+      const envelope = res.data?.data ?? res.data;
+      const rawItems: unknown[] = Array.isArray(envelope?.items) ? envelope.items
+        : Array.isArray(envelope) ? envelope : [];
+      return {
+        data: rawItems.map(toAssetSummary),
+        total: envelope?.total ?? rawItems.length,
+        page: envelope?.page ?? 1,
+        limit: envelope?.limit ?? 20,
+        totalPages: envelope?.totalPages ?? 1,
+      };
     },
     staleTime: 30_000,
   });
@@ -597,7 +628,20 @@ export default function CatalogPage() {
     queryKey: ['catalog-stats'],
     queryFn: async () => {
       const res = await api.assets.stats();
-      return res.data;
+      // Response envelope: { success: true, data: { total, byType: [...], byPlatform: [...] } }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const raw: any = res.data?.data ?? res.data;
+      // Convert server arrays to the Record<string, number> shape the UI expects
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const toRecord = (arr: any[], key: string): Record<string, number> =>
+        Array.isArray(arr) ? Object.fromEntries(arr.map((x) => [x[key], Number(x.count)])) : (arr ?? {});
+      return {
+        total: raw.total ?? 0,
+        certified: raw.byType ? 0 : (raw.certified ?? 0), // not from server, derive if needed
+        byType: toRecord(raw.byType, 'entity_type'),
+        byPlatform: toRecord(raw.byPlatform, 'platform'),
+        qualityDistribution: raw.qualityDistribution ?? { excellent: 0, good: 0, fair: 0, poor: 0 },
+      };
     },
     staleTime: 60_000,
   });

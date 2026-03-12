@@ -15,17 +15,23 @@ import {
   Plus,
   Key,
 } from 'lucide-react';
-import {
-  PieChart,
-  Pie,
-  Cell,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-} from 'recharts';
+// Recharts 2.x has a known JSX type incompatibility with React 19.
+// Assigning to typed FC variables via `as unknown as` is the standard workaround
+// until Recharts ships React 19-compatible types.
+import * as Recharts from 'recharts';
+
+// Each cast goes through unknown to satisfy strict mode.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AnyFC = React.FC<any>;
+const PieChart = Recharts.PieChart as unknown as AnyFC;
+const Pie = Recharts.Pie as unknown as AnyFC;
+const Cell = Recharts.Cell;
+const BarChart = Recharts.BarChart as unknown as AnyFC;
+const Bar = Recharts.Bar as unknown as AnyFC;
+const XAxis = Recharts.XAxis as unknown as AnyFC;
+const YAxis = Recharts.YAxis as unknown as AnyFC;
+const Tooltip = Recharts.Tooltip as unknown as AnyFC;
+const ResponsiveContainer = Recharts.ResponsiveContainer as unknown as AnyFC;
 import { StatCard } from '@/components/ui/Card';
 import { Badge, getWorkflowStatusVariant, getAlertSeverityVariant } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';

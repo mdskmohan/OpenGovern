@@ -7,7 +7,7 @@ export function useWorkflowInstances(filters?: Record<string, unknown>) {
     queryKey: ['workflows', filters],
     queryFn: async () => {
       const res = await api.workflows.listInstances(filters);
-      return res.data;
+      return res.data?.data ?? res.data;
     },
   });
 }
@@ -17,7 +17,7 @@ export function useWorkflowInstance(id: string | null) {
     queryKey: ['workflow', id],
     queryFn: async () => {
       const res = await api.workflows.getInstance(id!);
-      return res.data;
+      return res.data?.data ?? res.data;
     },
     enabled: !!id,
   });

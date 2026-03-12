@@ -32,7 +32,7 @@ export function Modal({
   size = 'md',
 }: ModalProps) {
   return (
-    <Dialog.Root open={open} onOpenChange={(o) => !o && onClose()}>
+    <Dialog.Root open={open} onOpenChange={(o: boolean) => !o && onClose()}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 bg-black/30 backdrop-blur-[2px] z-50 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
         <Dialog.Content

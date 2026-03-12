@@ -344,13 +344,13 @@ export default function RunDetailPage() {
             <OverviewRow label="Triggered by" value={run.triggered_by ?? 'schedule'} />
             <OverviewRow
               label="Started"
-              value={format(new Date(run.started_at), 'MMM d, yyyy h:mm:ss a')}
+              value={run.started_at ? format(new Date(run.started_at), 'MMM d, yyyy h:mm:ss a') : '—'}
             />
             <OverviewRow
               label="Ended"
               value={
                 run.finished_at
-                  ? format(new Date(run.finished_at), 'MMM d, yyyy h:mm:ss a')
+                  ? (run.finished_at ? format(new Date(run.finished_at), 'MMM d, yyyy h:mm:ss a') : '—')
                   : run.status === 'running'
                   ? 'In progress…'
                   : '—'

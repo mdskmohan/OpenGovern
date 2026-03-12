@@ -940,11 +940,11 @@ function CreateWorkflowWizard({ onClose }: { onClose: () => void }) {
         connectionTestLatency: res.data?.latency_ms,
       }));
     },
-    onError: (err: Error & { response?: { data?: { error?: string } } }) => {
+    onError: (err: Error & { response?: { data?: { error?: string; message?: string } } }) => {
       setState((s) => ({
         ...s,
         connectionTestStatus: 'failed',
-        connectionTestError: err.response?.data?.error?.message ?? err.response?.data?.message ?? err.message ?? 'Connection failed',
+        connectionTestError: err.response?.data?.error ?? err.response?.data?.message ?? err.message ?? 'Connection failed',
       }));
     },
   });

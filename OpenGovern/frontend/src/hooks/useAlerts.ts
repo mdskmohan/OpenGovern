@@ -7,7 +7,7 @@ export function useAlerts(filters?: Record<string, unknown>) {
     queryKey: ['alerts', filters],
     queryFn: async () => {
       const res = await api.alerts.list(filters);
-      return res.data;
+      return res.data?.data ?? res.data;
     },
   });
 }
