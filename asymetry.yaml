@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Agent
+metadata:
+  name: Default
+runtime:
+  language: python
+  version: '3.12'
+  builder: auto
+  mode: handler
+  port: 8000
+  health: /health
+  entrypoint: app.agent:invoke
+resources:
+  cpu: 512
+  memory: 1024
+  gpu: false
+env: []
